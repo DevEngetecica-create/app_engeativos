@@ -1,0 +1,57 @@
+# --- DEPENDÊNCIAS ---
+node_modules/
+vendor/
+
+# --- BUILD / CACHE ---
+dist/
+web-build/
+public/storage
+public/hot
+public/build
+storage/*.key
+storage/debugbar/
+storage/framework/
+storage/logs/
+bootstrap/cache/
+
+# --- EXPO / REACT NATIVE ---
+.expo/
+.expo-shared/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# --- SISTEMA / SO ---
+.DS_Store
+Thumbs.db
+
+# --- CERTIFICADOS / CHAVES ---
+*.pem
+
+# --- VARIÁVEIS DE AMBIENTE ---
+.env
+.env*.local
+
+# --- TYPESCRIPT ---
+*.tsbuildinfo
+*.tscache
+*.tsxcache
+*.ts
+*.tsx
+tsconfig.tsbuildinfo
+tsconfig.tsbuildinfo.*
+tsconfig.json
+tsconfig.*.json
+tslint.json
+tslint.yaml
+tslint.yml
+tslint.js
+tslint.cjs
+tslint.mjs

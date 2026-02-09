@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Engeativos",
+    "slug": "Engeativos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.sga.engeativos",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Precisamos da câmera para capturar imagens e documentos.",
+        "NSPhotoLibraryUsageDescription": "Precisamos acessar suas fotos para anexar imagens.",
+        "NSFaceIDUsageDescription": "Usamos autenticação biométrica para proteger seu acesso."
+      }
+    },
+    "android": {
+      "package": "com.sga.engeativos",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "USE_BIOMETRIC",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Precisamos de acesso à sua câmera para capturar imagens."
+        }
+      ],
+      "expo-localization"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b76bb5d5-5b31-4ee7-b191-a84c2c199432"
+      }
+    },
+    "owner": "samueltgq"
+  }
+}
