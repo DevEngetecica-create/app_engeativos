@@ -49,9 +49,10 @@
         }
       ],
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
-          "cameraPermission": "Precisamos de acesso à sua câmera para capturar imagens."
+          "cameraPermissionText": "O aplicativo precisa da câmera para ler placas e prefixos de veículos.",
+          "enableCodeScanner": true
         }
       ],
       "expo-localization"
