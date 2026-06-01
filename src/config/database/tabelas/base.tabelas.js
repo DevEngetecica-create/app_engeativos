@@ -13,11 +13,17 @@ export default function baseTabelas() {
             deleted_at TEXT
           );`,
 
+          // ⚠️ Colunas password_salt e password_algo (A4 — PBKDF2-like).
+          // Instalações antigas recebem essas colunas via ALTER TABLE em
+          // database.js → ensureUsersSchema(). Aqui declaramos no CREATE
+          // para que instalações novas já saiam corretas (defesa em profundidade).
           `CREATE TABLE IF NOT EXISTS users (
               id INTEGER PRIMARY KEY,
               name TEXT NOT NULL,
               email TEXT NOT NULL UNIQUE,
               password_app TEXT,
+              password_salt TEXT,
+              password_algo TEXT,
               biometria INTEGER,
               geolocalizacao INTEGER,
               status TEXT,

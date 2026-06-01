@@ -1,42 +1,31 @@
 // src/utils/schemaMigrator.js
-import { db } from '../config/database/database';
+//
+// Garante colunas em tabelas via ALTER TABLE ADD COLUMN idempotente.
+// Reutiliza o `executeSql` exposto por config/database/database.js — que
+// agora roda sobre a API moderna do expo-sqlite (Lote 3).
 
-// Pequeno helper para usar Promises
-const executeSql = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      tx.executeSql(
-        sql,
-        params,
-        (_, { rows }) => resolve(rows._array),
-        (_, err) => reject(err)
-      );
-    });
-  });
+import { executeSql } from '../config/database/database';
 
 /**
- * Garante que as colunas informadas existam na tabela.
- * - Se não existir, faz ALTER TABLE ADD COLUMN
- * - Opcionalmente cria índices para colunas
- * - Registra uma "migração" (opcional) na app_migrations
- *
  * @param {string} tableName
  * @param {Array<{
  *   name: string,
- *   type?: string,         // ex: "INTEGER", "TEXT", "REAL", "BLOB"
- *   notNull?: boolean,     // cuidado: NOT NULL exige DEFAULT não-nulo no SQLite ao adicionar
- *   defaultValue?: any,    // será injetado como DEFAULT ... (com aspas para strings)
- *   createIndex?: boolean, // cria índice idx_<table>_<col>
+ *   type?: string,
+ *   notNull?: boolean,
+ *   defaultValue?: any,
+ *   createIndex?: boolean,
  * }>} columns
  * @param {object} [opts]
- * @param {string} [opts.migrationName]  // se quiser registrar em app_migrations
+ * @param {string} [opts.migrationName]  // opcional: registra em app_migrations
  */
 export async function ensureTableColumns(tableName, columns, opts = {}) {
   if (!tableName || !Array.isArray(columns) || columns.length === 0) {
     throw new Error('Informe o nome da tabela e ao menos uma coluna.');
   }
 
-  // Tabela de controle (opcional, ajuda a saber se já rodou uma "onda" de alterações)
+  // Tabela de controle (idempotente). Útil para rastrear "ondas" de
+  // alterações sem precisar reler PRAGMA toda vez (mas ainda relemos
+  // como dupla checagem).
   await executeSql(`
     CREATE TABLE IF NOT EXISTS app_migrations (
       name TEXT PRIMARY KEY
@@ -44,21 +33,17 @@ export async function ensureTableColumns(tableName, columns, opts = {}) {
   `);
 
   if (opts.migrationName) {
-    const r = await executeSql(
-      `SELECT name FROM app_migrations WHERE name = ?`,
+    // Apenas LÊ — não cortamos cedo, para mantermos idempotência via PRAGMA.
+    await executeSql(
+      `SELECT name FROM app_migrations WHERE name = ?;`,
       [opts.migrationName]
     );
-    if (r.length) {
-      // Já rodado — ainda assim conferimos colunas (idempotência máxima)
-      // mas não retornamos cedo para garantir idempotência por PRAGMA também
-    }
   }
 
-  // Colunas atuais
-  const pragma = await executeSql(`PRAGMA table_info('${tableName}')`);
-  const existingCols = new Set(pragma.map(c => c.name));
+  // Colunas atuais.
+  const pragma = await executeSql(`PRAGMA table_info('${tableName}');`);
+  const existingCols = new Set(pragma.map((c) => c.name));
 
-  // Para cada coluna desejada, se não existir → ALTER TABLE ADD COLUMN
   for (const col of columns) {
     if (!col.name) continue;
 
@@ -66,19 +51,25 @@ export async function ensureTableColumns(tableName, columns, opts = {}) {
       const type = col.type ? col.type.trim() : 'TEXT';
       const parts = [`ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${type}`];
 
-      // NOT NULL em ALTER TABLE no SQLite só é permitido se tiver DEFAULT não-nulo.
+      // NOT NULL em ALTER TABLE no SQLite exige DEFAULT não-nulo.
       if (col.notNull) {
         if (col.defaultValue === undefined || col.defaultValue === null) {
-          console.warn(`⚠️ Coluna "${col.name}" pediu NOT NULL, mas sem DEFAULT. Removendo NOT NULL para evitar falha no SQLite.`);
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `⚠️ Coluna "${col.name}" pediu NOT NULL sem DEFAULT — removendo NOT NULL.`
+            );
+          }
         } else {
           parts.push('NOT NULL');
         }
       }
 
       if (col.defaultValue !== undefined) {
-        const dv = typeof col.defaultValue === 'string'
-          ? `'${col.defaultValue.replace(/'/g, "''")}'`
-          : String(col.defaultValue);
+        const dv =
+          typeof col.defaultValue === 'string'
+            ? `'${col.defaultValue.replace(/'/g, "''")}'`
+            : String(col.defaultValue);
         parts.push(`DEFAULT ${dv}`);
       }
 
@@ -96,7 +87,6 @@ export async function ensureTableColumns(tableName, columns, opts = {}) {
   }
 
   if (opts.migrationName) {
-    // marca como aplicada (idempotente)
     await executeSql(
       `INSERT OR IGNORE INTO app_migrations (name) VALUES (?);`,
       [opts.migrationName]

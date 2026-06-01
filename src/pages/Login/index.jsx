@@ -12,6 +12,7 @@ import {
   ScrollView,
   Animated,
   Linking,
+  Alert,
 } from "react-native";
 
 import {
@@ -23,7 +24,6 @@ import {
 } from "../../styles/custom2";
 
 import * as LocalAuthentication from "expo-local-authentication";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/auth";
 import {
@@ -31,6 +31,12 @@ import {
   isGoodSignal,
 } from "../../config/net/connectionSnapshot";
 import useKeyboardVisible from "../../utils/useKeyboardVisible";
+import {
+  getCredentials,
+  setCredentials,
+  hasCredentials,
+} from "../../utils/credentialsStore";
+import theme from "../../styles/theme";
 
 const LoginScreen = () => {
   const { signIn, switchConnectionMode, loading } = useAuth();
@@ -73,7 +79,7 @@ const LoginScreen = () => {
   // Entrada única para login
   const handleLogin = async (mode, em = email, pw = password) => {
     if (!em || !pw) {
-      alert("Preencha email e senha.");
+      Alert.alert("Atenção", "Preencha email e senha.");
       return;
     }
     setLogging(true);
@@ -83,7 +89,9 @@ const LoginScreen = () => {
 
     switchConnectionMode(mode);
     if (mode === "online") {
-      await AsyncStorage.setItem("@credentials", JSON.stringify({ email: em, password: pw }));
+      // Credenciais para futuro login biométrico: criptografadas pelo SO
+      // via SecureStore. Antes ficavam em texto plano no AsyncStorage.
+      await setCredentials(em, pw);
     }
   };
 
@@ -91,9 +99,10 @@ const LoginScreen = () => {
     (async () => {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
-      const stored = await AsyncStorage.getItem("@credentials");
       setBiometrySupported(compatible && enrolled);
-      setHasStoredCredentials(!!stored);
+      // hasCredentials lê do SecureStore com fallback para AsyncStorage legado,
+      // migrando-as silenciosamente — não força re-login de quem está em campo.
+      setHasStoredCredentials(await hasCredentials());
     })();
   }, []);
 
@@ -105,17 +114,17 @@ const LoginScreen = () => {
       });
 
       if (result.success) {
-        const stored = await AsyncStorage.getItem("@credentials");
+        const stored = await getCredentials();
         if (stored) {
-          const { email: em, password: pw } = JSON.parse(stored);
+          const { email: em, password: pw } = stored;
           // usa o mesmo critério do botão único
           await handleLogin(effectiveMode, em, pw);
         } else {
-          alert("Nenhuma credencial salva para login biométrico.");
+          Alert.alert("Atenção", "Nenhuma credencial salva para login biométrico.");
         }
       }
     } catch {
-      alert("Falha na autenticação biométrica");
+      Alert.alert("Atenção", "Falha na autenticação biométrica.");
     }
   };
 
@@ -242,42 +251,68 @@ const LoginScreen = () => {
 
 export default LoginScreen;
 
+// 🎨 Migração para tokens do theme.js (modo agressivo — mudanças visuais
+// sutis aceitas deliberadamente).
+//
+// Diferenças visuais resultantes (todas pequenas):
+//   • padding/margin: ±1–4px arredondando para o token mais próximo
+//   • borderRadius dos inputs/botões: 8 → 10 (mais arredondado)
+//   • borderColor do input: "#ccc" → "#e0e0e0" (mais claro)
+//   • cor do botão ONLINE: "#007bff" → theme.colors.primary ("#1f51fe")
+//     ⚠ azul Engeativos do theme — substitui o azul Bootstrap antigo
+//   • cor do botão OFFLINE: "darkorange" → theme.colors.orange ("#ff7639")
+//   • fontSize do botão: 17 → 16 (typography.button)
+//
+// Valores hardcoded que ficam (sem token equivalente):
+//   • dimensões fixas (logo 450×250, height 50 dos inputs)
+//   • top: -20 (posicionamento específico)
+//   • marginTop: 2 (subBanner — muito pequeno)
+//   • fontSize: 13 (subBanner — caption=12 seria perceptível, fica 13)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  scrollContent: { flexGrow: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  logoContainer: { top: -20, alignItems: "center", marginBottom: 25 },
+  container: { flex: 1, backgroundColor: theme.colors.surface },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: theme.spacing.xl,
+  },
+  logoContainer: { top: -20, alignItems: "center", marginBottom: theme.spacing.xl },
   logo: { width: 450, height: 250 },
   form: { width: "100%", alignItems: "center" },
   input: {
     width: "100%",
     height: 50,
-    borderColor: "#ccc",
+    borderColor: theme.colors.border,
     borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 15,
-    paddingHorizontal: 10,
+    borderRadius: theme.radii.md,
+    marginBottom: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
     fontSize: 16,
   },
-  banner: { alignItems: "center", marginBottom: 10 },
-  subBanner: { fontSize: 13, color: "#555", marginTop: 2 },
+  banner: { alignItems: "center", marginBottom: theme.spacing.md },
+  subBanner: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
   button: {
     width: "100%",
     height: 50,
-    borderRadius: 8,
+    borderRadius: theme.radii.md,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: theme.spacing.md,
   },
-  onlineBtn: { backgroundColor: "#007bff" },
-  offlineBtn: { backgroundColor: "darkorange" },
-  buttonText: { color: "#fff", fontSize: 17, fontWeight: "bold" },
+  onlineBtn: { backgroundColor: theme.colors.primary },
+  offlineBtn: { backgroundColor: theme.colors.orange },
+  buttonText: {
+    color: theme.colors.white,
+    fontSize: theme.typography.button.fontSize,
+    fontWeight: theme.typography.button.fontWeight,
+  },
   passwordContainer: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 8,
-    marginBottom: 15,
+    borderRadius: theme.radii.md,
+    marginBottom: theme.spacing.lg,
     paddingHorizontal: 0,
   },
-  eyeButton: { padding: 6 },
+  eyeButton: { padding: theme.spacing.xs },
 });

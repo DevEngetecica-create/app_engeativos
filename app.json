@@ -28,11 +28,10 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "CAMERA",
+        "RECORD_AUDIO",
         "USE_BIOMETRIC",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {

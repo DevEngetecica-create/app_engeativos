@@ -1,13 +1,10 @@
 // src/routes/routes.js
 
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from '../contexts/auth';
-import { useNetwork } from '../contexts/network';
-
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
 import Upload from '../pages/Configuracoes/upload';
 import Download from '../pages/Configuracoes/download';
@@ -54,40 +51,11 @@ import SincronizarUsuarios from '../components/SincronizarUsuarios';
 
 const Stack = createNativeStackNavigator();
 
-// Componente que aparece em todas as telas no header
-function HeaderRight() {
-  const { authData, signOut } = useAuth();
-  const avatarUri = authData?.user?.avatarUrl ?? null;
-
-  const { isOnline, isOffline, isForcedOffline, forceOfflineMode } = useNetwork();
-
-  const toggleModo = () => {
-    if (isForcedOffline) {
-      // voltar para o estado real do device
-      forceOfflineMode(false);
-    } else {
-      // força offline mesmo que o device esteja conectado
-      forceOfflineMode(true);
-    }
-  };
-
-  const navigation = useNavigation();
-  /* return (
-
-    <View style={styles.headerRight}>
-      <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.homeBpotton}>
-        <MaterialCommunityIcons name="home" size={24} color="#333" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.homeBpotton}>
-        <MaterialCommunityIcons name="auto-upload" size={24} color="#333" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
-        <MaterialCommunityIcons name="logout" size={24} color="#333" />
-      </TouchableOpacity>
-    </View>
-  ); */
-}
-
+// HeaderRight global foi removido: o componente estava vazio (return comentado)
+// e os atalhos de Home/Upload/Logout já vivem no <NetworkBanner /> renderizado
+// em App.js para todas as telas autenticadas. Telas que precisam de botão
+// próprio no header (ex.: ChecklistIndex) definem headerRight no próprio
+// Stack.Screen via função options.
 
 export default function Routes() {
   const { isAuthenticated, loading } = useAuth();
@@ -98,7 +66,6 @@ export default function Routes() {
     <Stack.Navigator
       screenOptions={{
         headerTitleAlign: 'left',
-        headerRight: () => <HeaderRight />,
       }}
     >
       {isAuthenticated ? (
@@ -133,13 +100,22 @@ export default function Routes() {
           <Stack.Screen name="ShowChecklistServicos" component={ShowChecklistServicos} options={{ title: 'Detalhes do Checklist' }} />
 
           <Stack.Screen
-            name="ChecklistIndex" component={ChecklistIndex} options={{
-              title: 'Checklists de Veículos', headerRight: () => (<TouchableOpacity style={{ marginRight: 15 }}
-                onPress={() => navigation.navigate('ChecklistCreate')} >
-                <MaterialIcons name="add-circle" size={26} color="#fff" />
-              </TouchableOpacity>
+            name="ChecklistIndex"
+            component={ChecklistIndex}
+            // ⚠️ options precisa ser função para receber { navigation }.
+            // Antes era um objeto literal, então `navigation` era undefined
+            // e o botão "+" quebrava ao ser tocado.
+            options={({ navigation }) => ({
+              title: 'Checklists de Veículos',
+              headerRight: () => (
+                <TouchableOpacity
+                  style={{ marginRight: 15 }}
+                  onPress={() => navigation.navigate('ChecklistCreate')}
+                >
+                  <MaterialIcons name="add-circle" size={26} color="#fff" />
+                </TouchableOpacity>
               ),
-            }}
+            })}
           />
 
           <Stack.Screen name="ConsultaPlaca" component={ConsultaPlaca} options={{ title: 'Consultar Placa' }} />
@@ -163,31 +139,6 @@ export default function Routes() {
   );
 }
 
-const styles = StyleSheet.create({
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 21,
-  },
-  statusText: {
-    marginLeft: 6,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
- 
-  homeBpotton: {
-    marginRight: 20,
-    color: '#f5690cff',
-
-  },
-});
+// Estilos do antigo HeaderRight foram removidos: nenhum era referenciado fora
+// daquela função. Mantenha estilos visuais centralizados em src/styles/theme.js
+// quando precisar reutilizar.

@@ -10,6 +10,14 @@ import { atualizarUltimaSync } from './syncUtils';
 import { getGlobalNetworkStatus } from '../../contexts/network';
 // 📶 snapshot de qualidade de conexão
 import { getConnectionSnapshot, isGoodSignal } from '../net/connectionSnapshot';
+// 📦 preparação de arquivo (A5): resize/compressão + montagem multipart
+import {
+  readImageAsBase64DataUri,
+  buildUploadFormData,
+  inferMimeType,
+} from '../../utils/fileUpload';
+// 🪵 logger condicional (silencioso em release)
+import logger from '../../utils/logger';
 
 // ==================== CONFIGURAÇÃO DAS TABELAS ====================
 export const TABELAS_DOWNLOAD = [
@@ -44,6 +52,23 @@ export const TABELAS_UPLOAD = [
   { nome: 'sms_checklist_preenchido_assinaturas', label:'Assinaturas do Checklist SMS'}
 ];
 
+// 🛡️ Whitelist consolidada para guarda de SQL dinâmico (M5).
+// Toda função que interpola `${tabela}` em SQL precisa validar contra
+// este Set primeiro. Hoje todos os usos vêm das listas acima, mas mantemos
+// a guarda explícita para evitar SQL injection se algum dia a origem mudar.
+const TABELAS_PERMITIDAS_SQL = new Set([
+  ...TABELAS_DOWNLOAD.map((t) => t.nome.trim()),
+  ...TABELAS_UPLOAD.map((t) => t.nome.trim()),
+]);
+
+function assertTabelaPermitida(tabela) {
+  const nome = typeof tabela === 'string' ? tabela.trim() : '';
+  if (!TABELAS_PERMITIDAS_SQL.has(nome)) {
+    throw new Error(`Tabela não permitida para SQL local: ${tabela}`);
+  }
+  return nome;
+}
+
 // ==================== REGISTRO DE SINCRONIZAÇÃO NO SERVIDOR ====================
 async function registrarSyncServidor(tabela, tipo, usuario) {
   try {
@@ -56,9 +81,9 @@ async function registrarSyncServidor(tabela, tipo, usuario) {
       user_create: usuario.user_create,
     });
 
-    console.log(`✅ Sync registrada no servidor: ${tabela} (${tipo})`);
+    logger.log(`✅ Sync registrada no servidor: ${tabela} (${tipo})`);
   } catch (err) {
-    console.warn(`⚠️ Erro ao registrar sync no servidor: ${err.message}`);
+    logger.warn(`⚠️ Erro ao registrar sync no servidor: ${err.message}`);
   }
 }
 
@@ -168,57 +193,66 @@ export async function uploadDados(updateStatus, _unused_isOffline, tabela = null
         continue;
       }
 
-      // 🔹 Clona e sanitiza dados (isola de funções no escopo!)
+      // 🔹 Clona registros e sanitiza valores inválidos (apenas funções).
+      // ⚠️ NÃO truncar strings nem aplicar regex destrutivo — corrompe dados.
       const registrosClonados = JSON.parse(JSON.stringify(registros));
+      registrosClonados.forEach((reg) => {
+        if (!reg || typeof reg !== 'object') return;
+        Object.keys(reg).forEach((key) => {
+          if (typeof reg[key] === 'function') reg[key] = null;
+        });
+      });
 
-      // 🔹 Processa arquivos e remove valores inválidos
-      const registrosComArquivo = (
-        await Promise.all(
+      // 🔍 Há arquivo binário local (file://) em pelo menos um registro?
+      const temArquivoLocal = registrosClonados.some(
+        (r) =>
+          r &&
+          typeof r.arquivo_app === 'string' &&
+          r.arquivo_app.startsWith('file://')
+      );
+
+      let response;
+      if (temArquivoLocal) {
+        // ─── A5.2 — Caminho MULTIPART ─────────────────────────────────
+        // buildUploadFormData faz resize/JPEG-85 em imagens, anexa cada
+        // arquivo por id_local em files[<id_local>][arquivo] e serializa
+        // o restante em "registros_json". O backend (uploadSeguro) detecta
+        // Content-Type multipart e segue um branch aditivo que reutiliza
+        // a mesma whitelist de colunas + idempotência por id_local.
+        // PDFs passam intactos (sem resize).
+        updateStatus?.(tab.nome, 'enviando', 'Preparando arquivos...', 30);
+        const { formData, totalArquivos } = await buildUploadFormData(registrosClonados);
+
+        updateStatus?.(tab.nome, 'enviando', `Enviando ${totalArquivos} arquivo(s)...`, 60);
+        response = await api.post(`upload/${tab.nome}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          // Uploads de arquivo podem demorar; relaxa o timeout padrão de 30s.
+          timeout: 120000,
+        });
+      } else {
+        // ─── A5.1 — Caminho JSON tradicional ──────────────────────────
+        // Nenhum file:// local. Mantemos o contrato JSON antigo para
+        // máxima compatibilidade com versões do backend pré-A5.
+        // Se algum registro já trouxer arquivo_uri pronto (data:...),
+        // ele segue. PDFs no SQLite gravado como caminho seguem.
+        const registrosPayload = await Promise.all(
           registrosClonados.map(async (reg) => {
             try {
-              // remove qualquer resquício de função
-              Object.keys(reg).forEach((key) => {
-                if (typeof reg[key] === 'function') reg[key] = null;
-                if (typeof reg[key] === 'string') {
-                  reg[key] = reg[key]
-                    .replace(/async function[\s\S]*$/g, '')
-                    .trim()
-                    .substring(0, 250);
-                }
-              });
-
-              if (
-                reg.arquivo_app &&
-                typeof reg.arquivo_app === 'string' &&
-                reg.arquivo_app.startsWith('file://')
-              ) {
-                const base64 = await FileSystem.readAsStringAsync(reg.arquivo_app, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-                const mimeType = reg.arquivo_app.toLowerCase().endsWith('.pdf')
-                  ? 'application/pdf'
-                  : 'image/jpeg';
-                return { ...reg, arquivo_uri: `data:${mimeType};base64,${base64}` };
-              }
-
+              // (caso raro) — algum registro pode ter arquivo_app como
+              // path absoluto sem file:// e ainda assim ser imagem; aqui
+              // poderíamos passar pelo resize, mas não acontece no fluxo
+              // normal. Mantemos comportamento antigo.
               return { ...reg, arquivo_uri: reg.arquivo_uri ?? null };
             } catch (err) {
-              console.warn(`⚠️ Erro ao processar arquivo (${tab.nome}):`, err.message);
+              if (__DEV__) console.warn(`[sync] erro em ${tab.nome}:`, err?.message);
               return reg;
             }
           })
-        )
-      ).filter((r) => r && typeof r === 'object');
+        );
 
-      if (registrosComArquivo.length === 0) {
-        updateStatus?.(tab.nome, 'concluido', 'Nada válido para enviar', 100);
-        continue;
+        updateStatus?.(tab.nome, 'enviando', 'Enviando...', 50);
+        response = await api.post(`upload/${tab.nome}`, { registros: registrosPayload });
       }
-
-      updateStatus?.(tab.nome, 'enviando', 'Enviando...', 50);
-
-      // 🔹 Envia ao backend
-      const response = await api.post(`upload/${tab.nome}`, { registros: registrosComArquivo });
 
       // 🔹 Só depois do sucesso, marca sincronizado
       if (response.data?.status === 'success') {
@@ -226,8 +260,9 @@ export async function uploadDados(updateStatus, _unused_isOffline, tabela = null
         await atualizarUltimaSync(tab.nome, usuario, 'upload');
         await registrarSyncServidor(tab.nome, 'upload', usuario);
 
-        updateStatus?.(tab.nome, 'concluido', `${registrosComArquivo.length} enviados`, 100);
-        console.log(`✅ ${tab.nome} → ${registrosComArquivo.length} registro(s) enviados`);
+        const totalEnviado = registrosClonados.length;
+        updateStatus?.(tab.nome, 'concluido', `${totalEnviado} enviados`, 100);
+        if (__DEV__) console.log(`✅ ${tab.nome} → ${totalEnviado} registro(s) enviados`);
       } else {
         throw new Error(`Servidor retornou status inválido (${response.status})`);
       }
@@ -241,34 +276,35 @@ export async function uploadDados(updateStatus, _unused_isOffline, tabela = null
 
 // ==================== AUXILIARES ====================
 async function salvarLocalmente(tabela, registros, updateStatus) {
+  const tabelaSafe = assertTabelaPermitida(tabela);
   return new Promise((resolve, reject) => {
     db.transaction(
       (tx) => {
-        tx.executeSql(`DELETE FROM ${tabela}`, []);
+        tx.executeSql(`DELETE FROM ${tabelaSafe}`, []);
         registros.forEach((reg, index) => {
           const cols = Object.keys(reg).join(', ');
           const vals = Object.values(reg);
           const ph = vals.map(() => '?').join(', ');
 
           tx.executeSql(
-            `INSERT OR REPLACE INTO ${tabela} (${cols}) VALUES (${ph})`,
+            `INSERT OR REPLACE INTO ${tabelaSafe} (${cols}) VALUES (${ph})`,
             vals,
             () => {
               updateStatus?.(
-                tabela,
+                tabelaSafe,
                 'baixando',
                 `Salvando ${index + 1}/${registros.length}`,
                 60 + ((index + 1) / registros.length) * 30
               );
             },
             (_t, err) => {
-              console.warn(`Erro ao salvar ${tabela}:`, err?.message);
+              logger.warn(`Erro ao salvar ${tabelaSafe}:`, err?.message);
             }
           );
         });
       },
       (error) => {
-        console.error(`⚠️ Falha ao salvar ${tabela}:`, error?.message);
+        logger.error(`⚠️ Falha ao salvar ${tabelaSafe}:`, error?.message);
         reject(error);
       },
       () => resolve()
@@ -277,11 +313,12 @@ async function salvarLocalmente(tabela, registros, updateStatus) {
 }
 
 async function buscarNaoSincronizados(tabela) {
+  const tabelaSafe = assertTabelaPermitida(tabela);
   return new Promise((resolve) => {
     db.readTransaction((tx) => {
       tx.executeSql(
         // ⚠️ Enviar somente registros pendentes (sync_status = 0)
-        `SELECT * FROM ${tabela} WHERE sync_status = 0;`,
+        `SELECT * FROM ${tabelaSafe} WHERE sync_status = 0;`,
         [],
         (_, { rows }) => resolve(rows._array || []),
         () => resolve([])
@@ -292,6 +329,7 @@ async function buscarNaoSincronizados(tabela) {
 
 // ==================== MARCAR COMO SINCRONIZADO ====================
 async function marcarComoSincronizado(tabela) {
+  const tabelaSafe = assertTabelaPermitida(tabela);
   return new Promise((resolve) => {
     try {
       // 🔒 executa de forma isolada e sem escopo global compartilhado
@@ -299,32 +337,31 @@ async function marcarComoSincronizado(tabela) {
         (tx) => {
           tx.executeSql(
             `
-              UPDATE ${tabela}
+              UPDATE ${tabelaSafe}
               SET sync_status = 1,
                   data_sincronizacao = datetime('now')
               WHERE sync_status = 0;
             `,
             [],
             () => {
-              console.log(`🔁 [${tabela}] registros marcados como sincronizados.`);
+              logger.log(`🔁 [${tabelaSafe}] registros marcados como sincronizados.`);
             },
             (_tx, err) => {
-              console.warn(`⚠️ Erro ao marcar sincronizado em ${tabela}: ${err.message}`);
+              logger.warn(`⚠️ Erro ao marcar sincronizado em ${tabelaSafe}: ${err.message}`);
             }
           );
         },
         (error) => {
-          console.error(`⚠️ Erro na transação SQLite (${tabela}):`, error?.message);
+          logger.error(`⚠️ Erro na transação SQLite (${tabelaSafe}):`, error?.message);
           resolve(); // mesmo com erro, encerra o Promise
         },
         () => {
-          // ✅ sucesso
-          console.log(`✅ ${tabela} atualizado → sync_status = 1`);
+          logger.log(`✅ ${tabelaSafe} atualizado → sync_status = 1`);
           resolve();
         }
       );
     } catch (err) {
-      console.error(`💥 Falha inesperada em marcarComoSincronizado(${tabela}):`, err.message);
+      logger.error(`💥 Falha inesperada em marcarComoSincronizado(${tabelaSafe}):`, err.message);
       resolve();
     }
   });

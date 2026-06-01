@@ -1,6 +1,7 @@
-import React, { createContext, useState, useEffect, useContext, useMemo } from "react";
+import React, { createContext, useState, useEffect, useContext, useMemo, useRef } from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { setConnectionSnapshot, computeQualityPct } from "../config/net/connectionSnapshot";
+import logger from "../utils/logger";
 
 const NetworkContext = createContext();
 
@@ -52,8 +53,16 @@ const NetworkProvider = ({ children }) => {
   // Atualiza estado global sempre que mudar
   globalNetworkStatus = { isOffline, isOnline };
 
-  // Log de diagnóstico
-  console.log(`[Net] ${isOffline ? "OFFLINE" : "ONLINE"} (forçado: ${isForcedOffline})`);
+  // Log de diagnóstico — só quando o estado MUDA (antes logava em todo render,
+  // poluindo Logcat) e apenas em __DEV__.
+  const lastLoggedRef = useRef(null);
+  useEffect(() => {
+    const key = `${isOffline ? "OFFLINE" : "ONLINE"}|forced=${isForcedOffline}`;
+    if (lastLoggedRef.current !== key) {
+      lastLoggedRef.current = key;
+      logger.log(`[Net] ${isOffline ? "OFFLINE" : "ONLINE"} (forçado: ${isForcedOffline})`);
+    }
+  }, [isOffline, isForcedOffline]);
 
   return (
     <NetworkContext.Provider value={{ isOffline, isOnline, forceOfflineMode }}>

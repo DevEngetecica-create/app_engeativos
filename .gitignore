@@ -39,19 +39,11 @@ Thumbs.db
 .env
 .env*.local
 
-# --- TYPESCRIPT ---
+# --- TYPESCRIPT (apenas artefatos de build, NUNCA o código-fonte/config) ---
 *.tsbuildinfo
 *.tscache
 *.tsxcache
-*.ts
-*.tsx
 tsconfig.tsbuildinfo
 tsconfig.tsbuildinfo.*
-tsconfig.json
-tsconfig.*.json
-tslint.json
-tslint.yaml
-tslint.yml
-tslint.js
-tslint.cjs
-tslint.mjs
+# IMPORTANTE: NÃO ignorar *.ts, *.tsx, tsconfig.json, tsconfig.*.json
+# Esses arquivos PRECISAM ser versionados quando houver migração para TypeScript.

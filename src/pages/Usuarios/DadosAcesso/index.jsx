@@ -6,8 +6,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../../contexts/auth';
 import api from '../../../config/api';
-import * as Crypto from 'expo-crypto';
-import { executeSql } from '../../../config/database/database';
+import { updateUserPasswordHash } from '../../../config/database/database';
+import { hashPasswordCurrent } from '../../../utils/crypto';
 
 const Index = () => {
   const { user, connectionMode, signOut } = useAuth();
@@ -124,12 +124,15 @@ const Index = () => {
         password_confirmation: confirm,
       });
 
-      // 🔐 Atualiza password_app no SQLite local (para login offline futuro)
-      const sha = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, newPass);
+      // 🔐 Atualiza o hash da senha no SQLite local com o algoritmo atual
+      // (PBKDF2-like + salt). Antes era SHA-256 puro, o que deixava o usuário
+      // trancado para login offline após troca de senha quando o registro
+      // anterior já estava no algoritmo moderno (mismatch de algoritmo).
       try {
-        await executeSql('UPDATE users SET password_app=? WHERE id=?', [sha, user.id]);
+        const { hash, salt, algo } = await hashPasswordCurrent(newPass);
+        await updateUserPasswordHash(user.id, hash, salt, algo);
       } catch (e) {
-        console.warn('Falha ao atualizar password_app local:', e?.message);
+        console.warn('Falha ao atualizar hash local da senha:', e?.message);
       }
 
       // ✅ Mostra modal de sucesso + inicia countdown para logout

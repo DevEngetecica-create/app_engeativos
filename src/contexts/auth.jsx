@@ -2,18 +2,41 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Crypto from "expo-crypto";
 import { Alert } from "react-native";
 
 import api, { setUnauthorizedHandler } from "../config/api";
-import { initDatabase, hasAnyUser, findUserByEmailAndPassHash, upsertUserFromOnline } from "../config/database/database";
+import {
+  initDatabase,
+  hasAnyUser,
+  findUserByEmail,
+  upsertUserFromOnline,
+  updateUserPasswordHash,
+  executeSql,
+} from "../config/database/database";
 import { forceGlobalOfflineMode } from "./network";
-import { executeSql } from "../config/database/database";
 import { downloadDados } from "../config/database/syncService";
+import {
+  hashPasswordCurrent,
+  verifyPassword,
+  isHashUpgradeNeeded,
+} from "../utils/crypto";
+import logger from "../utils/logger";
 
 const AuthContext = createContext(null);
 const TOKEN_KEY = "auth_token";
 const PROFILE_KEY = "userProfile";
+
+/**
+ * Remove campos sensíveis (hash da senha + salt) do registro do banco local
+ * antes de gravá-lo no AsyncStorage como parte do "profile". O AsyncStorage
+ * não é criptografado em Android — hash/salt devem permanecer apenas no SQLite.
+ */
+function sanitizeUserForProfile(row) {
+  if (!row || typeof row !== 'object') return row;
+  // eslint-disable-next-line no-unused-vars
+  const { password_app, password_salt, password_algo, ...safe } = row;
+  return safe;
+}
 
 async function limparBancoLocal() {
   const tabelas = [
@@ -35,10 +58,10 @@ async function limparBancoLocal() {
     try {
       await executeSql(`DELETE FROM ${tabela}`);
     } catch (e) {
-      console.warn(`⚠️ Falha ao limpar tabela ${tabela}:`, e.message);
+      logger.warn(`⚠️ Falha ao limpar tabela ${tabela}:`, e.message);
     }
   }
-  console.log("🧹 Banco local limpo com sucesso (mudança de usuário).");
+  logger.log("🧹 Banco local limpo com sucesso (mudança de usuário).");
 }
 
 export const AuthProvider = ({ children }) => {
@@ -59,7 +82,9 @@ export const AuthProvider = ({ children }) => {
   const clearAuthData = async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await AsyncStorage.removeItem(PROFILE_KEY);
-    delete api.defaults.headers.common["Authorization"];
+    // ⚠️ Não mexer em api.defaults.headers.common. O interceptor em src/config/api.js
+    // é a ÚNICA fonte do header Authorization: lê o token diretamente do SecureStore
+    // a cada request. Manter um "default" paralelo já causou dessincronia no passado.
     setAuthData(null);
   };
 
@@ -71,12 +96,13 @@ export const AuthProvider = ({ children }) => {
       if (token && rawProfile) {
         const profile = JSON.parse(rawProfile);
         await initDatabase();
-        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        // ⚠️ O Authorization header é injetado pelo interceptor de api.js a partir
+        // do SecureStore — não duplicar em api.defaults para evitar dessincronia.
         forceGlobalOfflineMode(profile.connectionMode === "offline");
         setAuthData({ token, ...profile });
       }
     } catch (err) {
-      console.error("Erro ao carregar sessão:", err);
+      logger.error("Erro ao carregar sessão:", err);
     } finally {
       setLoading(false);
     }
@@ -92,14 +118,52 @@ export const AuthProvider = ({ children }) => {
         return false;
       }
 
-      const senhaHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
-      const user = await findUserByEmailAndPassHash(email, senhaHash);
-      if (!user) {
+      // 🔐 Verificação offline com suporte a hash legado (SHA-256) E
+      // ao algoritmo atual (PBKDF2-like). Usuários em campo cujo
+      // password_app ainda é SHA-256 continuam logando normalmente.
+      const localUser = await findUserByEmail(email);
+      if (!localUser) {
         Alert.alert("Atenção", "Credenciais inválidas para login offline.");
         return false;
       }
 
-      const profile = { user, data_local: {}, connectionMode: "offline" };
+      const ok = await verifyPassword(
+        password,
+        localUser.password_app,
+        localUser.password_salt,
+        localUser.password_algo
+      );
+      if (!ok) {
+        Alert.alert("Atenção", "Credenciais inválidas para login offline.");
+        return false;
+      }
+
+      // 🔁 Migração transparente — se o hash gravado ainda é legado, sobe
+      // para o algoritmo atual. Não bloqueia o login se falhar.
+      if (isHashUpgradeNeeded(localUser.password_algo, localUser.password_salt)) {
+        try {
+          const upgraded = await hashPasswordCurrent(password);
+          await updateUserPasswordHash(
+            localUser.id,
+            upgraded.hash,
+            upgraded.salt,
+            upgraded.algo
+          );
+          if (__DEV__) {
+            console.log("[auth] hash local migrado para", upgraded.algo);
+          }
+        } catch (e) {
+          if (__DEV__) {
+            console.warn("[auth] falha na migração do hash local:", e?.message);
+          }
+        }
+      }
+
+      const profile = {
+        user: sanitizeUserForProfile(localUser),
+        data_local: {},
+        connectionMode: "offline",
+      };
       await SecureStore.setItemAsync(TOKEN_KEY, "offline-token");
       await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
       forceGlobalOfflineMode(true);
@@ -119,41 +183,50 @@ export const AuthProvider = ({ children }) => {
         const { token, user, data_local } = data;
         if (!token) throw new Error("Token não recebido do servidor");
 
+        // 🩹 Fix de bug: detecta se há OUTRO usuário cacheado e só então
+        // limpa o banco local. A implementação anterior chamava
+        // findUserByEmailAndPassHash(email, null, true) — onde o 3º arg era
+        // ignorado e password_app = NULL nunca casa → "outro usuário" era
+        // SEMPRE detectado, e o banco local era ZERADO em todo login online.
         const hasUser = await hasAnyUser();
         if (hasUser) {
-          const localUser = await findUserByEmailAndPassHash(email, null, true);
-          if (!localUser || localUser.id !== user.id) {
-            console.log("👥 Usuário diferente detectado — limpando banco local...");
+          const cached = await findUserByEmail(email);
+          // - cached null: e-mail novo, mas há outro usuário cacheado → limpa.
+          // - cached existe mas id diferente: trocou de pessoa → limpa.
+          // - cached existe e id bate: mesmo usuário → preserva os dados offline.
+          if (!cached || cached.id !== user.id) {
+            if (__DEV__) console.log("👥 Usuário diferente detectado — limpando banco local...");
             await limparBancoLocal();
           }
         }
 
-        const senhaHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
-        await upsertUserFromOnline(user, senhaHash);
+        // 🔐 Novo hash com PBKDF2-like + salt único.
+        const { hash, salt, algo } = await hashPasswordCurrent(password);
+        await upsertUserFromOnline(user, hash, salt, algo);
 
         const profile = { user, data_local, connectionMode: "online" };
         await SecureStore.setItemAsync(TOKEN_KEY, token);
         await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
         forceGlobalOfflineMode(false);
 
-        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        // ⚠️ Authorization é injetado pelo interceptor de api.js a partir do SecureStore.
         setAuthData({ token, ...profile });
 
         // 🔄 sync inicial (best-effort)
         try {
-          console.log("🔄 Iniciando sincronização automática inicial...");
+          logger.log("🔄 Iniciando sincronização automática inicial...");
           const userCtx = { user_id: user.id, user_create: user.email };
           await downloadDados(
             (tabela, status, msg, progresso) => {
-              console.log(`📦 ${tabela}: ${status} → ${msg} (${progresso}%)`);
+              logger.log(`📦 ${tabela}: ${status} → ${msg} (${progresso}%)`);
             },
             false,
             null,
             userCtx
           );
-          console.log("✅ Sincronização automática inicial concluída com sucesso.");
+          logger.log("✅ Sincronização automática inicial concluída com sucesso.");
         } catch (syncErr) {
-          console.warn("⚠️ Falha na sincronização automática inicial:", syncErr.message);
+          logger.warn("⚠️ Falha na sincronização automática inicial:", syncErr.message);
         }
 
         return true;

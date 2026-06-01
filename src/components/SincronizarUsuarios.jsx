@@ -1,10 +1,13 @@
-//src/conponentes/SincronizarUsuarios.js
+//src/components/SincronizarUsuarios.jsx
 import React, { useState, useRef } from 'react';
 import { View, Text, Button, Alert, ActivityIndicator } from 'react-native';
-import * as SQLite from 'expo-sqlite/legacy';
 import api from '../config/api';
-
-const db = SQLite.openDatabase('app.db');
+// 🔄 Lote 3: usa o handle compartilhado de database.js (sai do /legacy).
+// Antes este componente abria seu PRÓPRIO handle do mesmo arquivo "app.db",
+// o que podia conflitar com a transação principal do app. Agora usa o
+// wrapper de compat — mesma API (db.transaction/tx.executeSql) sem
+// duplicação.
+import { db } from '../config/database/database';
 
 const SincronizarUsuarios = () => {
   const [status, setStatus] = useState('');
