@@ -23,7 +23,6 @@ import {
 } from "../../styles/custom2";
 
 import * as LocalAuthentication from "expo-local-authentication";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../contexts/auth";
 import {
@@ -31,6 +30,9 @@ import {
   isGoodSignal,
 } from "../../config/net/connectionSnapshot";
 import useKeyboardVisible from "../../utils/useKeyboardVisible";
+// P1.4 security-port: credenciais biometricas em SecureStore (criptografado
+// pelo SO), com migracao silenciosa do legado @credentials no AsyncStorage.
+import { getCredentials, setCredentials, hasCredentials } from "../../utils/credentialsStore";
 
 const LoginScreen = () => {
   const { signIn, switchConnectionMode, loading } = useAuth();
@@ -82,17 +84,19 @@ const LoginScreen = () => {
     setLogging(false);
     if (!ok) return;
 
-    // Salvar credenciais localmente para uso futuro (Biometria)
-    await AsyncStorage.setItem("@credentials", JSON.stringify({ email: em, password: pw }));
+    // Salvar credenciais localmente para uso futuro (Biometria).
+    // Antes: AsyncStorage em texto plano. Agora: SecureStore (criptografado).
+    await setCredentials(em, pw);
   };
 
   useEffect(() => {
     (async () => {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
-      const stored = await AsyncStorage.getItem("@credentials");
       setBiometrySupported(compatible && enrolled);
-      setHasStoredCredentials(!!stored);
+      // hasCredentials le do SecureStore com fallback p/ o legado AsyncStorage,
+      // migrando silenciosamente — nao forca re-login de quem ja estava logado.
+      setHasStoredCredentials(await hasCredentials());
     })();
   }, []);
 
@@ -104,9 +108,9 @@ const LoginScreen = () => {
       });
 
       if (result.success) {
-        const stored = await AsyncStorage.getItem("@credentials");
+        const stored = await getCredentials();
         if (stored) {
-          const { email: em, password: pw } = JSON.parse(stored);
+          const { email: em, password: pw } = stored;
           // usa o mesmo critério do botão único
           await handleLogin(effectiveMode, em, pw);
         } else {
