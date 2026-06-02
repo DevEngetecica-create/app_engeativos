@@ -14,16 +14,16 @@ const base = require("./app.json").expo;
 const APP_ENV = process.env.APP_ENV || "development";
 const isDev = APP_ENV === "development";
 
-// Defaults: em desenvolvimento o time normalmente roda a API local em HTTP.
-// Em release, cai SEMPRE para HTTPS de produção. Use APP_API_URL para
-// apontar staging.
-// DEV: IP do servidor Laravel local (ajuste para o IP da sua maquina —
-//      `ipconfig`/`ifconfig`). SEMPRE com /api/ no final.
-// RELEASE: producao HTTPS. Sobreponha pontualmente com APP_API_URL=...
+// DEV: usa localhost porque o device acessa o Laravel via tunel USB:
+//        adb reverse tcp:8000 tcp:8000
+//      (fura Wi-Fi corporativo isolado e firewall — vai pelo cabo).
+//      Sem o adb reverse, localhost NAO funciona; rode-o antes.
+//      Para apontar para um IP de LAN ou producao, use APP_API_URL=...
+// RELEASE: producao HTTPS.
 const apiBaseUrl =
   process.env.APP_API_URL ||
   (isDev
-    ? "http://192.168.0.103:8000/api/"
+    ? "http://127.0.0.1:8000/api/"
     : "https://sga-engeativos.com.br/api/");
 
 // Reconstrói os plugins ajustando expo-build-properties:
