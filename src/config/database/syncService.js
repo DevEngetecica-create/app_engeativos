@@ -91,6 +91,27 @@ const TABELAS_DOWNLOAD_COMPLETO = new Set([
   'veiculo_checklist_itens',
 ]);
 
+// A.3 — Catalogos SOMENTE-LEITURA: full-refresh no login (DELETE dos
+// sincronizados + insert do conjunto atual do servidor) para propagar
+// REMOCOES/desativacoes. NAO inclui users (credenciais locais — protegido em
+// A.2) nem horimetro/quilometragems (tem leituras locais/pendentes de upload).
+const TABELAS_FULL_REFRESH = new Set([
+  'veiculos',
+  'veiculo_checklist',
+  'veiculo_checklist_itens',
+  'obras',
+  'funcionarios',
+  'funcao_funcionarios',
+  'veiculos_locacaos',
+  'veiculo_preventivas',
+  'veiculo_preventivas_itens_realizadas',
+  'sms_checklist',
+  'sms_checklist_itens',
+  'sms_checklist_informacoes',
+  'sms_obras_permitidas',
+  'sms_funcionarios',
+]);
+
 export const TABELAS_UPLOAD = [
   { nome: 'checklists_frota', label: 'Checklist da Frota' },
   { nome: 'veiculo_horimetro', label: 'Horimetro' },
@@ -385,7 +406,9 @@ export async function downloadDados(updateStatus, _unused_isOffline, tabela = nu
       try {
         updateStatus?.(tab.nome, 'baixando', 'Buscando dados...', 20);
 
-        const ultimaSync = TABELAS_DOWNLOAD_COMPLETO.has(tab.nome)
+        // A.3 — catalogos full-refresh forcam download COMPLETO (sem incremental)
+        const fullRefresh = TABELAS_FULL_REFRESH.has(tab.nome);
+        const ultimaSync = (fullRefresh || TABELAS_DOWNLOAD_COMPLETO.has(tab.nome))
           ? null
           : await getUltimaSync(tab.nome, usuario, 'download');
         const response = await api.get(`download/${tab.nome}`, {
@@ -395,11 +418,14 @@ export async function downloadDados(updateStatus, _unused_isOffline, tabela = nu
         if (!Array.isArray(registros)) registros = [registros];
 
         if (registros.length === 0) {
+          // Em full-refresh, 0 registros = catalogo vazio no servidor ->
+          // limpa os sincronizados locais (remove obsoletos).
+          if (fullRefresh) await limparSincronizadosLocais(tab.nome);
           updateStatus?.(tab.nome, 'concluido', 'Nada para atualizar', 100);
           continue;
         }
 
-        await salvarLocalmente(tab.nome, registros, updateStatus);
+        await salvarLocalmente(tab.nome, registros, updateStatus, { fullRefresh });
 
         await atualizarUltimaSync(tab.nome, usuario, 'download');
         await registrarSyncServidor(tab.nome, 'download', usuario);
@@ -680,7 +706,16 @@ async function preservarColunasLocais(tabela, registros) {
   }
 }
 
-async function salvarLocalmenteSeguro(tabela, registros, updateStatus) {
+// A.3 — Remove os registros sincronizados (sync_status=1) de um catalogo,
+// preservando pendentes (0/2/3). Usado no full-refresh quando o servidor
+// retorna 0 registros (catalogo esvaziado).
+async function limparSincronizadosLocais(tabela) {
+  if (!isSafeIdentifier(tabela)) return;
+  try { await execAsyncSync(`DELETE FROM ${tabela} WHERE sync_status = 1;`); }
+  catch (e) { if (__DEV__) console.warn(`[fullRefresh] limpar ${tabela}:`, e?.message); }
+}
+
+async function salvarLocalmenteSeguro(tabela, registros, updateStatus, options = {}) {
   // A.2 — preserva colunas locais sensiveis antes do INSERT OR REPLACE.
   await preservarColunasLocais(tabela, registros);
 
@@ -699,6 +734,11 @@ async function salvarLocalmenteSeguro(tabela, registros, updateStatus) {
 
     db.transaction(
       (tx) => {
+        // A.3 — full-refresh: limpa os sincronizados ANTES de inserir (mesma
+        // transacao = atomico; preserva pendentes 0/2/3). Propaga remocoes.
+        if (options.fullRefresh && isSafeIdentifier(tabela)) {
+          tx.executeSql(`DELETE FROM ${tabela} WHERE sync_status = 1;`, []);
+        }
         tx.executeSql(`PRAGMA table_info(${tabela})`, [], (_, { rows }) => {
           const validColumns = rows._array.map((col) => col.name).filter(isSafeIdentifier);
           const missingColumns = incomingKeys.filter((key) => !validColumns.includes(key));
@@ -791,8 +831,8 @@ async function salvarLocalmenteSeguro(tabela, registros, updateStatus) {
   });
 }
 
-async function salvarLocalmente(tabela, registros, updateStatus) {
-  return salvarLocalmenteSeguro(tabela, registros, updateStatus);
+async function salvarLocalmente(tabela, registros, updateStatus, options = {}) {
+  return salvarLocalmenteSeguro(tabela, registros, updateStatus, options);
 }
 
 async function buscarNaoSincronizados(tabela) {

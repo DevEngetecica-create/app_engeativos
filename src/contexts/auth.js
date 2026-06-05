@@ -281,35 +281,25 @@ export const AuthProvider = ({ children }) => {
         await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
         forceGlobalOfflineMode(false);
 
-        setAuthData({ token, ...profile });
-
-        // Primeiro acesso ou troca de usuario: dispara download inicial
-        // automaticamente para encher os catalogos. Roda em background com
-        // feedback (toast) para nao bloquear a navegacao para Home.
-        if (primeiroAcesso || usuarioDiferente) {
-          const motivo = primeiroAcesso ? 'primeiro acesso' : 'troca de usuario';
-          console.log(`[Auth] Baixando dados iniciais — ${motivo}`);
-          Alert.alert(
-            primeiroAcesso ? 'Bem-vindo' : 'Dados atualizados',
-            primeiroAcesso
-              ? 'Baixando seus dados iniciais. Mantenha o app aberto ate concluir.'
-              : 'Detectamos um novo usuario. Baixando os dados deste perfil — aguarde.'
-          );
-          // Sem await: o usuario ja entra na Home e o download corre em background
-          downloadDados(
+        // A.3 — Refresh dos catalogos em TODO login online, de forma BLOQUEANTE
+        // (o spinner do botao de login cobre a espera). Os catalogos sao
+        // full-refresh (veiculos, checklists, obras, etc.) -> propaga edicoes,
+        // novos E REMOCOES feitas no servidor. Best-effort: se o download
+        // falhar (sinal/erro), o login NAO e bloqueado — entra com o cache.
+        try {
+          await downloadDados(
             (tabela, status, msg) => {
-              if (status === 'erro') {
-                console.warn(`Download inicial — ${tabela}: ${msg}`);
-              }
+              if (status === 'erro' && __DEV__) console.warn(`Download ${tabela}: ${msg}`);
             },
             false,
             null,
             { user_id: user.id, user_create: user.email }
-          ).catch(err => {
-            console.warn('Download inicial falhou:', err?.message);
-          });
+          );
+        } catch (err) {
+          if (__DEV__) console.warn('Refresh de catalogos no login falhou:', err?.message);
         }
 
+        setAuthData({ token, ...profile });
         return true;
       } catch (e) {
         const status = e?.response?.status;
