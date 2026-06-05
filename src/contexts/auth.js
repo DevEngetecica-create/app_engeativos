@@ -9,6 +9,7 @@ import { initDatabase, aplicarHardeningSync, hasAnyUser, findUserByEmail, upsert
 import { forceGlobalOfflineMode } from "./network";
 import { downloadDados } from "../config/database/syncService";
 import { hashPasswordCurrent, verifyPassword, isHashUpgradeNeeded } from "../utils/crypto";
+import { showToast } from "../utils/toast";
 
 const AuthContext = createContext(null);
 const TOKEN_KEY = "auth_token";
@@ -286,8 +287,11 @@ export const AuthProvider = ({ children }) => {
         // full-refresh (veiculos, checklists, obras, etc.) -> propaga edicoes,
         // novos E REMOCOES feitas no servidor. Best-effort: se o download
         // falhar (sinal/erro), o login NAO e bloqueado — entra com o cache.
+        // Informa o usuario que os dados vem do SERVIDOR (o Analista controla
+        // os dados no servidor; o app reflete a cada login). Toast ao final.
+        let syncRes = null;
         try {
-          await downloadDados(
+          syncRes = await downloadDados(
             (tabela, status, msg) => {
               if (status === 'erro' && __DEV__) console.warn(`Download ${tabela}: ${msg}`);
             },
@@ -297,6 +301,12 @@ export const AuthProvider = ({ children }) => {
           );
         } catch (err) {
           if (__DEV__) console.warn('Refresh de catalogos no login falhou:', err?.message);
+          syncRes = { success: false, message: err?.message };
+        }
+        if (syncRes?.success) {
+          showToast('Dados atualizados com o servidor.', 'success');
+        } else {
+          showToast('Nao foi possivel atualizar tudo agora. Usando os dados salvos no aparelho.', 'warning');
         }
 
         setAuthData({ token, ...profile });
