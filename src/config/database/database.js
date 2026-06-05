@@ -219,9 +219,100 @@ export function initDatabase() {
 
       },
       err => reject(err),
-      () => resolve()
+      () => {
+        // A.1 — Reconciliador de schema: adiciona ao SQLite as colunas
+        // declaradas nos CREATEs (*.tabelas.js) que faltam em tabelas antigas
+        // (apos atualizacao do app). Idempotente; nao derruba o boot se falhar.
+        reconcileSchemaColumns()
+          .then(() => resolve())
+          .catch((e) => {
+            if (__DEV__) console.warn('[initDatabase] reconcile falhou:', e?.message);
+            resolve();
+          });
+      }
     );
   });
+}
+
+// ===================================================================
+// A.1 — Reconciliador de schema (auto-ALTER de colunas faltantes)
+// ===================================================================
+//
+// Problema: CREATE TABLE IF NOT EXISTS nao altera tabelas ja existentes.
+// Quando uma atualizacao do app adiciona uma coluna, quem ja tinha o banco
+// antigo nao a recebe -> erro "no such column". Este reconciliador le as
+// colunas declaradas nos CREATEs e faz ALTER ADD COLUMN nas que faltam.
+// Fonte unica da verdade = os proprios *.tabelas.js.
+
+// Extrai { table, columns:[{name, ddl}] } de uma string CREATE TABLE.
+// Retorna null para CREATE INDEX ou strings que nao sejam CREATE TABLE.
+function parseCreateTable(sql) {
+  const s = String(sql || '');
+  const m = s.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]?(\w+)["'`]?\s*\(([\s\S]*)\)\s*;?\s*$/i);
+  if (!m) return null;
+  const table = m[1];
+  // split por virgula de topo (schemas simples, sem parenteses aninhados)
+  const parts = m[2].split(',').map((p) => p.trim()).filter(Boolean);
+  const SKIP = /^(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT)\b/i;
+  const columns = [];
+  for (const part of parts) {
+    if (SKIP.test(part)) continue; // constraint de tabela, nao coluna
+    const cm = part.match(/^["'`]?(\w+)["'`]?\s+([\s\S]+)$/);
+    if (!cm) continue;
+    const name = cm[1];
+    const ddl = cm[2].trim();
+    // Nunca adicionamos PK/AUTOINCREMENT via ALTER (SQLite nao permite).
+    if (/\bPRIMARY\s+KEY\b/i.test(ddl) || /\bAUTOINCREMENT\b/i.test(ddl)) continue;
+    columns.push({ name, ddl });
+  }
+  return { table, columns };
+}
+
+// Monta um ALTER seguro: mantem tipo + DEFAULT; remove UNIQUE/NOT NULL
+// (ALTER ADD COLUMN do SQLite nao aceita UNIQUE nem NOT NULL sem default).
+function buildAlterAddColumn(table, col) {
+  const ddl = col.ddl
+    .replace(/\bUNIQUE\b/ig, '')
+    .replace(/\bNOT\s+NULL\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `ALTER TABLE ${table} ADD COLUMN ${col.name} ${ddl};`;
+}
+
+// Percorre todos os CREATEs e adiciona, em cada tabela JA EXISTENTE, as
+// colunas declaradas que faltam. Roda no initDatabase (login + boot).
+export async function reconcileSchemaColumns() {
+  const creates = [...baseTabelas(), ...veiculosTabelas(), ...SMSTabelas()];
+  for (const sql of creates) {
+    const parsed = parseCreateTable(sql);
+    if (!parsed) continue;
+
+    let existing;
+    try {
+      const info = await executeSql(`PRAGMA table_info(${parsed.table});`);
+      existing = new Set((info || []).map((c) => c.name));
+    } catch (e) {
+      if (__DEV__) console.warn(`[reconcile] PRAGMA ${parsed.table} falhou:`, e?.message);
+      continue;
+    }
+    // size 0 = tabela ainda nao existe (CREATE IF NOT EXISTS ja cuidou no
+    // mesmo init); nada a reconciliar e evita ALTER em tabela inexistente.
+    if (existing.size === 0) continue;
+
+    for (const col of parsed.columns) {
+      if (existing.has(col.name)) continue;
+      try {
+        await executeSql(buildAlterAddColumn(parsed.table, col));
+        if (__DEV__) console.log(`[reconcile] +${parsed.table}.${col.name}`);
+      } catch (e) {
+        const msg = e?.message || '';
+        if (!/duplicate column/i.test(msg) && __DEV__) {
+          console.warn(`[reconcile] ${parsed.table}.${col.name}: ${msg}`);
+        }
+      }
+    }
+  }
+  return true;
 }
 
 // ===================================================================
