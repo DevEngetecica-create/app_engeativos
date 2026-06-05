@@ -48,6 +48,13 @@ const TABELAS_EVIDENCIA_OBRIGATORIA = new Set([
   'sms_checklist_preenchido_assinaturas',
 ]);
 
+// A.2 / Finding #1 — Colunas LOCAIS que o download NAO pode sobrescrever.
+// O servidor nao envia hash/salt/algo (sao locais do app) e o perfil_offline
+// e montado localmente no login. Sem isso, baixar 'users' zera o login offline.
+const COLUNAS_PRESERVADAS_DOWNLOAD = {
+  users: ['password_app', 'password_salt', 'password_algo', 'perfil_offline'],
+};
+
 function filtrarRegistroPermitido(tabela, registro) {
   const colunas = COLUNAS_UPLOAD_PERMITIDAS[tabela];
   if (!colunas) return registro;
@@ -643,7 +650,40 @@ function isSafeIdentifier(name) {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(name));
 }
 
+// A.2 — Antes de gravar o download, lê os valores LOCAIS das colunas protegidas
+// e injeta no registro recebido, para o INSERT OR REPLACE NAO zerá-las.
+// Mantem o valor local (PBKDF2/perfil) e ainda atualiza os demais campos.
+async function preservarColunasLocais(tabela, registros) {
+  const preservar = COLUNAS_PRESERVADAS_DOWNLOAD[tabela];
+  if (!preservar || !preservar.length) return;
+  if (!Array.isArray(registros) || registros.length === 0) return;
+  if (!isSafeIdentifier(tabela)) return;
+  const cols = preservar.filter(isSafeIdentifier);
+  if (cols.length === 0) return;
+
+  for (const reg of registros) {
+    if (!reg || reg.id === undefined || reg.id === null) continue;
+    try {
+      const rows = await execAsyncSync(
+        `SELECT ${cols.join(', ')} FROM ${tabela} WHERE id = ? LIMIT 1;`,
+        [reg.id]
+      );
+      const local = rows && rows[0];
+      if (!local) continue; // sem linha local (1o acesso) -> usa o que veio
+      for (const col of cols) {
+        const v = local[col];
+        if (v !== null && v !== undefined && v !== '') {
+          reg[col] = v; // preserva o valor LOCAL (sobrepoe o do servidor)
+        }
+      }
+    } catch (_) { /* best-effort: na duvida, nao mexe */ }
+  }
+}
+
 async function salvarLocalmenteSeguro(tabela, registros, updateStatus) {
+  // A.2 — preserva colunas locais sensiveis antes do INSERT OR REPLACE.
+  await preservarColunasLocais(tabela, registros);
+
   return new Promise((resolve, reject) => {
     if (!registros || registros.length === 0) {
       return resolve();
