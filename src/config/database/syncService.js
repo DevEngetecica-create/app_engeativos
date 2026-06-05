@@ -91,10 +91,12 @@ const TABELAS_DOWNLOAD_COMPLETO = new Set([
   'veiculo_checklist_itens',
 ]);
 
-// A.3 — Catalogos SOMENTE-LEITURA: full-refresh no login (DELETE dos
-// sincronizados + insert do conjunto atual do servidor) para propagar
-// REMOCOES/desativacoes. NAO inclui users (credenciais locais — protegido em
-// A.2) nem horimetro/quilometragems (tem leituras locais/pendentes de upload).
+// A.3 — Full-refresh no login: DELETE dos sincronizados + insert do conjunto
+// atual do servidor. Propaga EDICOES, novos E REMOCOES/desativacoes.
+// O DELETE so remove sync_status=1 -> leituras PENDENTES do usuario (0/2/3)
+// sao SEMPRE preservadas. Por isso horimetro/quilometragems entram com
+// seguranca (garante o valor atual do servidor, ex.: horimetro do veiculo).
+// NAO inclui users (credenciais locais — protegido em A.2).
 const TABELAS_FULL_REFRESH = new Set([
   'veiculos',
   'veiculo_checklist',
@@ -105,6 +107,8 @@ const TABELAS_FULL_REFRESH = new Set([
   'veiculos_locacaos',
   'veiculo_preventivas',
   'veiculo_preventivas_itens_realizadas',
+  'veiculo_horimetro',
+  'veiculo_quilometragems',
   'sms_checklist',
   'sms_checklist_itens',
   'sms_checklist_informacoes',
