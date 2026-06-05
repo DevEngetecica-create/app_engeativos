@@ -16,9 +16,10 @@ import { getConnectionSnapshot, isGoodSignal, SIGNAL_OK_THRESHOLD } from "./net/
 // process.env tambem nao funciona dentro de aspas; a fonte correta no Expo
 // e o app.config.js (extra), lido aqui via expo-constants.
 const FALLBACK_BASE_URL = "https://sga-engeativos.com.br/api/";
+// expoConfig e a fonte moderna (substitui Constants.manifest, depreciado).
+// No dev-client + Metro e no EAS, expoConfig.extra vem do app.config.js.
 const baseURL =
   Constants?.expoConfig?.extra?.apiBaseUrl ||
-  Constants?.manifest?.extra?.apiBaseUrl ||
   FALLBACK_BASE_URL;
 
 if (__DEV__) {
