@@ -1,7 +1,7 @@
 // ./src/pages/Usuarios/Perfil.js
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { ScrollView, Text, Dimensions, StyleSheet, View, Alert, Switch, TouchableOpacity, Image as RNImage } from 'react-native';
+import { ScrollView, Text, Dimensions, StyleSheet, View, Alert, Switch, TouchableOpacity, Image as RNImage, Linking } from 'react-native';
 import styled from 'styled-components/native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -82,23 +82,20 @@ const PerfilScreen = () => {
         });
       } else {
         getPreferenciasLocal();
-        db.transaction(tx => {
-          tx.executeSql(
-            'SELECT * FROM funcionarios WHERE id=?',
-            [user.id],
-            (_, { rows }) => rows.length > 0 && setFuncionario(rows.item(0))
-          );
-          tx.executeSql(
-            'SELECT * FROM obras WHERE id = (SELECT id_obra FROM funcionarios WHERE id = ?)',
-            [user.id],
-            (_, { rows }) => rows.length > 0 && setObra(rows.item(0))
-          );
-          tx.executeSql(
-            'SELECT * FROM funcao_funcionarios WHERE id = (SELECT id_funcao FROM funcionarios WHERE id = ?)',
-            [user.id],
-            (_, { rows }) => rows.length > 0 && setFuncao(rows.item(0))
-          );
-        });
+        if (authData?.dados_func) {
+          setFuncionario(authData.dados_func);
+          setObra(authData.obra_acesso);
+          setFuncao(authData.funcao);
+        } else {
+          // Fallback legacy (caso authData não tenha o perfil completo salvo)
+          db.transaction(tx => {
+            tx.executeSql(
+              'SELECT * FROM funcionarios LIMIT 1',
+              [],
+              (_, { rows }) => rows.length > 0 && setFuncionario(rows.item(0))
+            );
+          });
+        }
       }
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível carregar os dados.');
@@ -333,6 +330,21 @@ const PerfilScreen = () => {
               Minha matrícula: {funcionario?.matricula || 'Não disponível'}
             </Text>
           </View>
+
+          {/* Links legais (LGPD) */}
+          <View style={styles.legalLinks}>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://sga-engeativos.com.br/privacidade')}
+            >
+              <Text style={styles.legalLink}>Politica de Privacidade</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalSep}>  •  </Text>
+            <TouchableOpacity
+              onPress={() => Linking.openURL('https://sga-engeativos.com.br/suporte')}
+            >
+              <Text style={styles.legalLink}>Termos e Suporte</Text>
+            </TouchableOpacity>
+          </View>
         </ContainerDados>
       </ScrollView>
     </Container>
@@ -474,4 +486,22 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 0, width: width, height: FOOTER_HEIGHT, zIndex: 10 },
   qrContainer: { marginTop: 26, alignItems: 'center', justifyContent: 'center' },
   qrText: { marginTop: 8, fontSize: 14, color: '#333', fontWeight: 'bold' },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    flexWrap: 'wrap',
+  },
+  legalLink: {
+    color: '#1f51fe',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  legalSep: {
+    color: '#888',
+    fontSize: 13,
+  },
 });

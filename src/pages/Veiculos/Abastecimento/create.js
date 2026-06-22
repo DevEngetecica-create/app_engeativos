@@ -11,8 +11,18 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import styled from 'styled-components/native';
 import * as ImagePicker from 'expo-image-picker';
+import uuid from 'react-native-uuid';
 import { db, executeSql } from '../../../config/database/database';
 import { showToast } from '../../../utils/toast';
+import {
+  integerInputBlockingSeparators,
+  integerInputValue,
+  integerNumberValue,
+  onlyDigits,
+  currencyMask,
+  currencyToNumber
+} from '../../../utils/numberInput';
+import { nowLocalTimestamp } from '../../../utils/datetime';
 
 // =============================
 // 🔹 Styled Components
@@ -120,11 +130,13 @@ export default function AbastecimentoCreate() {
       );
 
       if (tipo == 4) {
-        setValores({ anterior: ult[0]?.hr_atual || 0 });
-        setForm(prev => ({ ...prev, hr_anterior: String(ult[0]?.hr_atual || 0) }));
+        const anterior = integerInputValue(ult[0]?.hr_atual || 0);
+        setValores({ anterior: integerNumberValue(anterior, 0) });
+        setForm(prev => ({ ...prev, hr_anterior: anterior }));
       } else {
-        setValores({ anterior: ult[0]?.km_atual || 0 });
-        setForm(prev => ({ ...prev, km_anterior: String(ult[0]?.km_atual || 0) }));
+        const anterior = integerInputValue(ult[0]?.km_atual || 0);
+        setValores({ anterior: integerNumberValue(anterior, 0) });
+        setForm(prev => ({ ...prev, km_anterior: anterior }));
       }
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
@@ -147,10 +159,12 @@ export default function AbastecimentoCreate() {
 
   // =============================
   // 🔹 Cálculo automático do total
+  //   quantidade e valor_do_litro vem da currencyMask (ex: "7.19")
   // =============================
   useEffect(() => {
-    const total =
-      (parseFloat(form.quantidade || 0) * parseFloat(form.valor_do_litro || 0)).toFixed(2);
+    const q = currencyToNumber(form.quantidade);
+    const v = currencyToNumber(form.valor_do_litro);
+    const total = (q * v).toFixed(2);
     setForm(prev => ({ ...prev, valor_total: total }));
   }, [form.quantidade, form.valor_do_litro]);
 
@@ -191,12 +205,18 @@ export default function AbastecimentoCreate() {
     }
 
     if (tipoVeiculo == 4) {
-      if (parseFloat(form.hr_atual || 0) < parseFloat(form.hr_anterior || 0)) {
+      const hrAtual = integerNumberValue(form.hr_atual, 0);
+      const hrAnterior = integerNumberValue(form.hr_anterior, 0);
+      if (hrAtual < hrAnterior) {
         Alert.alert('Erro', 'Horímetro atual não pode ser menor que o anterior.');
         return;
       }
+      if (hrAtual > hrAnterior + 10) {
+        Alert.alert('Erro', `O salto não pode exceder 10h (Máx permitido: ${hrAnterior + 10}).`);
+        return;
+      }
     } else {
-      if (parseFloat(form.km_atual || 0) < parseFloat(form.km_anterior || 0)) {
+      if (integerNumberValue(form.km_atual, 0) < integerNumberValue(form.km_anterior, 0)) {
         Alert.alert('Erro', 'Hodômetro atual não pode ser menor que o anterior.');
         return;
       }
@@ -205,26 +225,33 @@ export default function AbastecimentoCreate() {
     try {
       setLoading(true);
       const usuario = await getUsuario();
-      const data_abastecimento = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const data_abastecimento = nowLocalTimestamp();
+      const kmAnterior = integerInputValue(form.km_anterior);
+      const kmAtual = onlyDigits(form.km_atual);
+      const hrAnterior = integerInputValue(form.hr_anterior);
+      const hrAtual = onlyDigits(form.hr_atual);
+
+      const idLocalAbast = uuid.v4();
 
       await executeSql(
         `INSERT INTO veiculo_abastecimentos (
-          veiculo_id, id_obra, id_funcionario, user_create,
+          id_local, veiculo_id, id_obra, id_funcionario, user_create,
           data_abastecimento, km_anterior, km_atual,
           hr_anterior, hr_atual, fornecedor, combustivel,
           quantidade, valor_do_litro, valor_total,
           tipo, arquivo_app, sync_status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);`,
         [
+          idLocalAbast,
           id_veiculo,
           id_obra,
           usuario.id,
           usuario.email,
           data_abastecimento,
-          form.km_anterior,
-          form.km_atual,
-          form.hr_anterior,
-          form.hr_atual,
+          kmAnterior,
+          kmAtual,
+          hrAnterior,
+          hrAtual,
           form.fornecedor,
           form.combustivel,
           form.quantidade,
@@ -280,7 +307,10 @@ export default function AbastecimentoCreate() {
               <Input
                 keyboardType="numeric"
                 value={form.hr_atual}
-                onChangeText={v => setForm({ ...form, hr_atual: v.replace(/[^0-9]/g, '') })}
+                onChangeText={v => setForm({
+                  ...form,
+                  hr_atual: integerInputBlockingSeparators(v, form.hr_atual)
+                })}
               />
             </>
           ) : (
@@ -292,7 +322,10 @@ export default function AbastecimentoCreate() {
               <Input
                 keyboardType="numeric"
                 value={form.km_atual}
-                onChangeText={v => setForm({ ...form, km_atual: v.replace(/[^0-9]/g, '') })}
+                onChangeText={v => setForm({
+                  ...form,
+                  km_atual: integerInputBlockingSeparators(v, form.km_atual)
+                })}
               />
             </>
           )}
@@ -315,14 +348,16 @@ export default function AbastecimentoCreate() {
           <Input
             keyboardType="numeric"
             value={form.quantidade}
-            onChangeText={v => setForm({ ...form, quantidade: v.replace(/[^0-9.]/g, '') })}
+            onChangeText={v => setForm({ ...form, quantidade: currencyMask(v) })}
+            placeholder="0.00"
           />
 
           <Label>Valor por Litro (R$)</Label>
           <Input
             keyboardType="numeric"
             value={form.valor_do_litro}
-            onChangeText={v => setForm({ ...form, valor_do_litro: v.replace(/[^0-9.]/g, '') })}
+            onChangeText={v => setForm({ ...form, valor_do_litro: currencyMask(v) })}
+            placeholder="0.00"
           />
 
           <Label>Total (R$)</Label>

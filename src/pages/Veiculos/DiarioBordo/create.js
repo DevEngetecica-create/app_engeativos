@@ -16,9 +16,17 @@ import { TextInputMask } from 'react-native-masked-text';
 import * as ImagePicker from 'expo-image-picker';
 import NetInfo from '@react-native-community/netinfo';
 import styled from 'styled-components/native';
+import uuid from 'react-native-uuid';
 
 import { db, executeSql } from '../../../config/database/database';
 import { showToast } from '../../../utils/toast';
+import {
+  integerInputBlockingSeparators,
+  integerInputValue,
+  integerNumberValue,
+  onlyDigits
+} from '../../../utils/numberInput';
+import { nowLocalTimestamp, nowLocalDMYHM } from '../../../utils/datetime';
 
 // =============================
 // 🔹 Styled Components
@@ -83,6 +91,7 @@ const Linha = styled.View`
   margin-vertical: 10px;
 `;
 
+
 // =============================
 // 🔹 Principal
 // =============================
@@ -91,14 +100,12 @@ export default function DiarioCadastro() {
   const { id_veiculo, prefixo, id_obra } = useRoute().params;
 
   const [loading, setLoading] = useState(false);
-  const [valores, setValores] = useState({ tipo: null, maiorHr: '', maiorHod: '' });
+  const [valores, setValores] = useState({ tipo_km: 0, tipo_hr: 0, maiorHr: '', maiorHod: '' });
   const [form, setForm] = useState({
     horario_inicial: '',
     horimetro_inicial: '',
     hodometro_inicial: '',
-    horario_final: '',
-    horimetro_final: '',
-    hodometro_final: '',
+    
     descricao_atividade: '',
     arquivo: null
   });
@@ -132,8 +139,15 @@ export default function DiarioCadastro() {
   const fetchDadosVeiculo = useCallback(async () => {
     setLoading(true);
     try {
-      const veiculo = await executeSql(`SELECT tipo FROM veiculos WHERE id = ?`, [id_veiculo]);
-      const tipo = veiculo[0]?.tipo || null;
+      const veiculo = await executeSql(`SELECT tipo_km, tipo_hr, tipo FROM veiculos WHERE id = ?`, [id_veiculo]);
+      let tipo_km = veiculo[0]?.tipo_km || 0;
+      let tipo_hr = veiculo[0]?.tipo_hr || 0;
+
+      if (!tipo_km && !tipo_hr) {
+        const isMaquina = veiculo[0]?.tipo == 4;
+        tipo_hr = isMaquina ? 1 : 0;
+        tipo_km = !isMaquina ? 1 : 0;
+      }
 
       const hr = await executeSql(
         `SELECT MAX(horimetro_novo) as maximo FROM veiculo_horimetro WHERE veiculo_id = ?`,
@@ -145,9 +159,10 @@ export default function DiarioCadastro() {
       );
 
       setValores({
-        tipo,
-        maiorHr: hr[0]?.maximo ? String(hr[0].maximo) : '',
-        maiorHod: hod[0]?.maximo ? String(hod[0].maximo) : ''
+        tipo_km,
+        tipo_hr,
+        maiorHr: hr[0]?.maximo ? integerInputValue(hr[0].maximo) : '',
+        maiorHod: hod[0]?.maximo ? integerInputValue(hod[0].maximo) : ''
       });
     } catch (e) {
       console.error('Erro ao buscar dados locais:', e);
@@ -191,14 +206,19 @@ export default function DiarioCadastro() {
       console.log('Usuário para diário:', userEmail);
 
 
-      const data_cadastro = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      // Timestamp em America/Sao_Paulo (regra de negocio do app)
+      const data_cadastro = nowLocalTimestamp();
+      const hrAnterior = integerInputValue(form.horimetro_inicial || valores.maiorHr) || null;
+      const kmAnterior = integerInputValue(form.hodometro_inicial || valores.maiorHod) || null;
+      const idLocal = uuid.v4();
+
       await executeSql(
         `INSERT INTO veiculos_diario_bordo (
-
-          id_obra, id_veiculo, id_user, user_create, user_edit, data_cadastro, horario_inicial, horimetro_inicial, hodometro_inicial,
-          horario_final, horimetro_final, hodometro_final, descricao_atividade, arquivo_app, sync_status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);`,
+          id_local, ciclo_status, id_obra, id_veiculo, id_user, user_create, user_edit, data_cadastro, horario_inicial,
+          hr_anterior, km_anterior, descricao_atividade, arquivo_app, sync_status, created_at
+        ) VALUES (?, 'ABERTO', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);`,
         [
+          idLocal,
           id_obra,
           id_veiculo,
           userEmail.id,
@@ -206,22 +226,19 @@ export default function DiarioCadastro() {
           null,
           data_cadastro,
           data_cadastro,
-          valores.maiorHr,
-          valores.maiorHod,
-          form.horario_final,
-          form.horimetro_final,
-          form.hodometro_final,
+          hrAnterior,
+          kmAnterior,
           form.descricao_atividade,
           form.arquivo || '',
           data_cadastro
         ]
       );
 
-      showToast('✅ Diário salvo com sucesso!', 'success');
-      navigation.navigate('VeiculosDiarioBordo', { id_veiculo: id_veiculo, prefixo: prefixo, id_obra: id_obra });
+      showToast('✅ Diário de Bordo aberto localmente.', 'success');
+      navigation.goBack();
     } catch (error) {
       console.error('Erro ao salvar localmente:', error);
-      showToast('❌ Falha ao salvar o diário.', 'error');
+      showToast('❌ Falha ao abrir o diário.', 'error');
     }
   };
 
@@ -260,7 +277,8 @@ export default function DiarioCadastro() {
     );
   }
 
-  const isMaquina = valores.tipo == 4;
+  const isHr = valores.tipo_hr == 1;
+  const isKm = valores.tipo_km == 1;
 
   return (
     <ScrollView
@@ -268,6 +286,9 @@ export default function DiarioCadastro() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchDadosVeiculo} />}
     >
       <Container>
+        <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#333', textAlign: 'center', marginVertical: 8 }}>
+          Abrir Diário de Bordo
+        </Text>
         <Text style={{ fontWeight: 'bold', marginBottom: 10, color: '#333' }}>
           Veículo: {prefixo} | Obra: {id_obra}
         </Text>
@@ -276,7 +297,7 @@ export default function DiarioCadastro() {
         {/* ================================
             🔹 Card de Horímetro ou Quilometragem
         ================================= */}
-        {isMaquina ? (
+        {isHr && (
           <Card style={{ borderLeftWidth: 6, borderLeftColor: '#e67e22', backgroundColor: '#fff9f2' }}>
             <View style={styles.metricaHeader}>
               <Text style={[styles.metricaIcon, { color: '#e67e22' }]}>⚙️</Text>
@@ -286,34 +307,21 @@ export default function DiarioCadastro() {
             <InputGroup>
               <Label>Horímetro Inicial</Label>
               <Input
-                value={valores.maiorHr} /* editable={false} */
-                onChangeText={t => setForm({ ...form, horimetro_inicial: t.replace(/[^0-9]/g, '') })}
+                value={form.horimetro_inicial !== '' ? form.horimetro_inicial : valores.maiorHr}
+                onChangeText={t => setForm({
+                  ...form,
+                  horimetro_inicial: integerInputBlockingSeparators(t, form.horimetro_inicial || valores.maiorHr)
+                })}
                 keyboardType="numeric"
                 placeholder="Digite o horímetro inicial"
               />
             </InputGroup>
 
-            <InputGroup>
-              <Label>Horímetro Final</Label>
-              <Input
-                value={form.horimetro_final}
-                error={!!inputError}
-                onChangeText={t => {
-                  const v = t.replace(/[^0-9]/g, '');
-                  setForm({ ...form, horimetro_final: v });
-                  if (parseInt(v || 0) < parseInt(form.horimetro_inicial || 0)) {
-                    setInputError('⚠️ O horímetro final não pode ser menor que o inicial.');
-                  } else {
-                    setInputError('');
-                  }
-                }}
-                keyboardType="numeric"
-                placeholder="Digite o horímetro final"
-              />
-              {inputError ? <Text style={styles.errorText}>{inputError}</Text> : null}
-            </InputGroup>
+            
           </Card>
-        ) : (
+        )}
+
+        {isKm && (
           <Card style={{ borderLeftWidth: 6, borderLeftColor: '#3498db', backgroundColor: '#f4f9ff' }}>
             <View style={styles.metricaHeader}>
               <Text style={[styles.metricaIcon, { color: '#3498db' }]}>🚗</Text>
@@ -323,8 +331,11 @@ export default function DiarioCadastro() {
             <InputGroup>
               <Label>Quilometragem Inicial</Label>
               <Input
-                value={valores.maiorHod} editable={false}
-                onChangeText={t => setForm({ ...form, hodometro_inicial: t.replace(/[^0-9]/g, '') })}
+                value={form.hodometro_inicial !== '' ? form.hodometro_inicial : valores.maiorHod}
+                onChangeText={t => setForm({
+                  ...form,
+                  hodometro_inicial: integerInputBlockingSeparators(t, form.hodometro_inicial || valores.maiorHod)
+                })}
                 keyboardType="numeric"
                 placeholder="Digite a quilometragem inicial"
               />
@@ -333,21 +344,11 @@ export default function DiarioCadastro() {
             <InputGroup>
               <Label>Quilometragem Final</Label>
               <Input
+                editable={false}
                 value={form.hodometro_final}
-                error={!!inputError}
-                onChangeText={t => {
-                  const v = t.replace(/[^0-9]/g, '');
-                  setForm({ ...form, hodometro_final: v });
-                  if (parseInt(v || 0) < parseInt(form.hodometro_inicial || 0)) {
-                    setInputError('⚠️ A quilometragem final não pode ser menor que a inicial.');
-                  } else {
-                    setInputError('');
-                  }
-                }}
-                keyboardType="numeric"
-                placeholder="Digite a quilometragem final"
+                style={{ backgroundColor: '#eee' }}
+                placeholder="Bloqueado na abertura"
               />
-              {inputError ? <Text style={styles.errorText}>{inputError}</Text> : null}
             </InputGroup>
           </Card>
         )}
@@ -357,34 +358,11 @@ export default function DiarioCadastro() {
           <Label>Data e Horário Inicial</Label>
           <Input
             editable={false}
-            value={
-              form.horario_inicial ||
-              (() => {
-                const data = new Date();
-                const dia = String(data.getDate()).padStart(2, '0');
-                const mes = String(data.getMonth() + 1).padStart(2, '0');
-                const ano = data.getFullYear();
-                const hora = String(data.getHours()).padStart(2, '0');
-                const min = String(data.getMinutes()).padStart(2, '0');
-                return `${dia}/${mes}/${ano} ${hora}:${min}`;
-              })()
-            }
+            value={form.horario_inicial || nowLocalDMYHM()}
             style={styles.maskInput}
           />
 
-          <Label>Horário Final</Label>
-          <TextInputMask
-            type={'datetime'}
-            options={{
-              format: 'DD/MM/YYYY HH:mm',
-            }}
-            value={form.horario_final}
-            onChangeText={v => setForm({ ...form, horario_final: v })}
-            style={styles.maskInput}
-            placeholder="Digite a data e hora final (dd/mm/yyyy hh:mm)"
-            keyboardType="numeric"
-          />
-        </Card>
+          </Card>
 
 
         {/* Descrição */}
@@ -411,7 +389,7 @@ export default function DiarioCadastro() {
         </Btn>
 
         <Btn color="green" onPress={handleSubmit} disabled={!!inputError || loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <BtnText>Salvar Diário</BtnText>}
+          {loading ? <ActivityIndicator color="#fff" /> : <BtnText>Salvar Abertura</BtnText>}
         </Btn>
       </Container>
     </ScrollView>

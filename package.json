@@ -6,7 +6,11 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "verify": "node scripts/verify-build.js",
+    "verify:ios": "node scripts/verify-build.js --platform ios",
+    "verify:android": "node scripts/verify-build.js --platform android",
+    "verify:fast": "node scripts/verify-build.js --skip-prebuild"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.3",
@@ -18,7 +22,7 @@
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
     "@types/react": "~18.2.79",
-    "axios": "^1.7.2",
+    "axios": "1.7.9",
     "expo": "^51.0.0",
     "expo-build-properties": "~0.12.5",
     "expo-crypto": "~13.0.2",
@@ -32,6 +36,7 @@
     "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~1.12.1",
     "expo-text-recognition": "^0.1.1",
+    "expo-updates": "~0.25.28",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.74.5",
@@ -57,7 +62,8 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "babel-plugin-module-resolver": "^5.0.2"
+    "babel-plugin-module-resolver": "^5.0.2",
+    "babel-plugin-transform-remove-console": "^6.9.4"
   },
   "private": true
 }

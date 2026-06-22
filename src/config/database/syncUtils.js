@@ -20,8 +20,11 @@ export function ensureSyncTable() {
         );`
       );
       tx.executeSql(
-        `CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_tabela_user
-         ON sincronizacaos(tabela, user_id);`
+        `DROP INDEX IF EXISTS idx_sync_tabela_user;`
+      );
+      tx.executeSql(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_tabela_user_tipo
+         ON sincronizacaos(tabela, user_id, tipo);`
       );
     }, () => resolve(), () => resolve());
   });
@@ -69,7 +72,7 @@ export async function atualizarUltimaSync(tabela, userCtx, tipo = null) {
 }
 
 // ==================== BUSCA ÚLTIMA SYNC LOCAL ====================
-export async function getUltimaSync(tabela, userCtx) {
+export async function getUltimaSync(tabela, userCtx, tipo = null) {
   await ensureSyncTable();
   let { user_id } = userCtx || {};
 
@@ -81,8 +84,12 @@ export async function getUltimaSync(tabela, userCtx) {
   return new Promise(resolve => {
     db.transaction(tx => {
       tx.executeSql(
-        `SELECT data_sincronizacao FROM sincronizacaos WHERE tabela = ? AND user_id = ? LIMIT 1;`,
-        [tabela, user_id],
+        `SELECT data_sincronizacao
+         FROM sincronizacaos
+         WHERE tabela = ? AND user_id = ? AND (? IS NULL OR tipo = ?)
+         ORDER BY datetime(data_sincronizacao) DESC
+         LIMIT 1;`,
+        [tabela, user_id, tipo, tipo],
         (_, { rows }) => resolve(rows._array[0]?.data_sincronizacao || null),
         () => resolve(null)
       );

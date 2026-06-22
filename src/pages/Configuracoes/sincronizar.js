@@ -11,8 +11,9 @@ import {
   Button,
   Alert // Importar Alert para exibir mensagens de erro
 } from 'react-native';
-import { downloadDados, uploadDados } from '../../config/database/syncService';
+import { downloadDados, uploadDados, isSyncBusy } from '../../config/database/syncService';
 import * as FileSystem from 'expo-file-system';
+import { limparDadosLocaisSeguro } from '../../config/database/cleanupService';
 
 const SQLITE_DIR = `${FileSystem.documentDirectory}SQLite/`;
 
@@ -28,7 +29,9 @@ const tabelasDownload = [
   { nome: 'veiculo_checklist', label: 'Checklist dos Veículos' },
   { nome: 'veiculo_checklist_itens', label: 'Itens de Checklist' },
   { nome: 'veiculo_horimetro', label: 'Horímetro (Download)' }, // Adicionado (Download) para diferenciar
-  { nome: 'veiculo_quilometragem', label: 'Hodômetro (Download)' } // Adicionado (Download) para diferenciar
+  { nome: 'veiculo_quilometragems', label: 'Hodômetro (Download)' }, // Adicionado (Download) para diferenciar
+  { nome: 'veiculo_preventivas', label: 'Preventivas: Ciclos' },
+  { nome: 'veiculo_preventivas_itens_realizadas', label: 'Preventivas: Histórico' }
 ];
 
 
@@ -65,35 +68,40 @@ export default function SyncManager() {
           text: "Confirmar",
           onPress: async () => {
             try {
-              const arquivos = await FileSystem.readDirectoryAsync(SQLITE_DIR);
-              console.log('Arquivos em SQLite:', arquivos);
-
-              // Apaga todos os arquivos .db na pasta SQLite
-              const arquivosParaExcluir = arquivos.filter(nome =>
-                nome.endsWith('.db')
-              );
-
-              if (arquivosParaExcluir.length === 0) {
-                Alert.alert('Sucesso', 'Nenhum banco de dados para limpar.');
-                return;
-              }
-
-              for (const nomeArquivo of arquivosParaExcluir) {
-                const caminho = SQLITE_DIR + nomeArquivo;
-                try {
-                  await FileSystem.deleteAsync(caminho, { idempotent: true });
-                  console.log(`Arquivo excluído: ${nomeArquivo}`);
-                } catch (erro) {
-                  console.error(`Erro ao excluir ${nomeArquivo}:`, erro);
-                  Alert.alert('Erro', `Falha ao excluir ${nomeArquivo}: ${erro.message}`);
-                }
-              }
-
-              Alert.alert('Sucesso', 'Limpeza de bancos de dados concluída.');
+              await limparDadosLocaisSeguro();
+              Alert.alert('Sucesso', 'Limpeza de bancos e imagens locais concluída.');
               console.log('Limpeza concluída.');
             } catch (erro) {
-              console.error('Erro ao acessar pasta SQLite:', erro);
-              Alert.alert('Erro', `Erro ao acessar diretório SQLite: ${erro.message}`);
+              if (erro.code === 'PENDENCIAS_ENCONTRADAS') {
+                const linhasDetalhe = (erro.detalhes || []).map(d => {
+                  const partes = [];
+                  if (d.pendentes > 0) partes.push(`${d.pendentes} pendente${d.pendentes > 1 ? 's' : ''}`);
+                  if (d.abandonados > 0) partes.push(`${d.abandonados} c/ erro`);
+                  return `• ${d.label}: ${partes.join(', ')}`;
+                });
+
+                const partesMsg = [
+                  `Existem ${erro.totalRegistros} registro(s) ainda nao enviados ao servidor:`,
+                  '',
+                  ...linhasDetalhe,
+                ];
+                if (erro.totalLogs > 0) {
+                  partesMsg.push('', `+ ${erro.totalLogs} log(s) de erro pendentes`);
+                }
+                partesMsg.push('', 'Toque em ENVIAR PARA O SERVIDOR antes de limpar para nao perder os dados.');
+
+                Alert.alert(
+                  'Existem dados nao enviados',
+                  partesMsg.join('\n'),
+                  [
+                    { text: 'OK', style: 'cancel' },
+                    { text: 'Enviar agora', onPress: () => executarOperacao('upload') },
+                  ]
+                );
+              } else {
+                console.error('Erro ao limpar dados locais:', erro);
+                Alert.alert('Erro', `Erro na limpeza: ${erro.message}`);
+              }
             }
           }
         }
@@ -105,6 +113,12 @@ export default function SyncManager() {
   // EXECUTAR OPERAÇÃO: download ou upload
   // -----------------------------------------
   const executarOperacao = async (tipo) => {
+    // Bloqueio de clique duplo + sync simultaneo (defesa em profundidade — o syncService tambem bloqueia)
+    if (operacao || isSyncBusy()) {
+      Alert.alert('Aguarde', 'Já existe uma sincronização em andamento.');
+      return;
+    }
+
     setOperacao(tipo);
     setMensagemGeral(tipo === 'download' ? 'Download em andamento...' : 'Upload em andamento...');
     setProgressoGeral(0);
@@ -124,7 +138,7 @@ export default function SyncManager() {
     try {
       const funcaoDeSincronizacao = tipo === 'download' ? downloadDados : uploadDados;
 
-      await funcaoDeSincronizacao((tabelaNome, novoStatus, mensagem, progresso) => {
+      const resultado = await funcaoDeSincronizacao((tabelaNome, novoStatus, mensagem, progresso) => {
         // Atualiza o estado global de status e recalcula progresso geral
         setStatus(prev => {
           // Atualiza apenas a tabela em questão
@@ -152,12 +166,53 @@ export default function SyncManager() {
         });
       });
 
-      setMensagemGeral(tipo === 'download' ? 'Download concluído!' : 'Upload concluído!');
-      Alert.alert('Sucesso', tipo === 'download' ? 'Todos os dados foram baixados com sucesso!' : 'Todos os dados foram enviados com sucesso!');
+      const tituloFimServico = tipo === 'download' ? 'Download concluido' : 'Upload concluido';
+
+      if (resultado?.alreadyRunning) {
+        setMensagemGeral(resultado.message);
+        Alert.alert('Aguarde', resultado.message);
+        return;
+      }
+
+      if (resultado?.success === false) {
+        const totalErrosServico = resultado.totalErros ?? 1;
+        const totalProcessadosServico = resultado.totalProcessados ?? 0;
+        setMensagemGeral(`${tituloFimServico} com ${totalErrosServico} erro(s)`);
+        Alert.alert(
+          'Concluido com erros',
+          `Processados: ${totalProcessadosServico}\nCom erro: ${totalErrosServico}\n\n${resultado.message || 'Os dados continuam salvos no dispositivo. Tente sincronizar novamente.'}`
+        );
+        return;
+      }
+
+      // Resumo final: conta sucessos e erros por tabela
+      let totalErros = 0;
+      let totalConcluidos = 0;
+      const tabelasComErro = [];
+      setStatus(prev => {
+        tabelasAtuaisParaUI.forEach(t => {
+          const st = prev[t.nome]?.status;
+          if (st === 'erro') { totalErros++; tabelasComErro.push(t.label); }
+          if (st === 'concluido') totalConcluidos++;
+        });
+        return prev;
+      });
+
+      const tituloFim = tipo === 'download' ? 'Download concluído' : 'Upload concluído';
+      if (totalErros === 0) {
+        setMensagemGeral(`${tituloFim} (${totalConcluidos} OK)`);
+        Alert.alert('Sucesso', `${tituloFim}.\n\n${totalConcluidos} tabela(s) processada(s) sem erro.`);
+      } else {
+        setMensagemGeral(`${tituloFim} com ${totalErros} erro(s)`);
+        Alert.alert(
+          'Concluído com erros',
+          `OK: ${totalConcluidos}\nCom erro: ${totalErros}\n\nPendências:\n• ${tabelasComErro.join('\n• ')}\n\nOs dados continuam salvos no dispositivo. Tente sincronizar novamente.`
+        );
+      }
     } catch (error) {
       const errorMessage = `Erro no ${tipo}: ${error.message}`;
       setMensagemGeral(errorMessage);
-      Alert.alert('Erro', errorMessage);
+      Alert.alert('Erro', `${errorMessage}\n\nOs dados pendentes continuam no dispositivo.`);
       console.error(errorMessage, error);
     } finally {
       setOperacao(null);
@@ -175,6 +230,7 @@ export default function SyncManager() {
   };
 
   const tabelasAtuaisParaUI = operacao === 'upload' ? tabelasUpload : tabelasDownload;
+  const syncBloqueado = !!operacao || isSyncBusy();
 
   return (
     <View style={styles.container}>
@@ -200,10 +256,10 @@ export default function SyncManager() {
           style={[
             styles.botao,
             styles.botaoDownload,
-            operacao && { opacity: 0.5 }
+            syncBloqueado && { opacity: 0.5 }
           ]}
           onPress={() => executarOperacao('download')}
-          disabled={!!operacao}
+          disabled={syncBloqueado}
         >
           {operacao === 'download'
             ? <ActivityIndicator color="#FFF" />
@@ -219,10 +275,10 @@ export default function SyncManager() {
           style={[
             styles.botao,
             styles.botaoUpload,
-            operacao && { opacity: 0.5 }
+            syncBloqueado && { opacity: 0.5 }
           ]}
           onPress={() => executarOperacao('upload')}
-          disabled={!!operacao}
+          disabled={syncBloqueado}
         >
           {operacao === 'upload'
             ? <ActivityIndicator color="#FFF" />

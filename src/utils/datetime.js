@@ -2,12 +2,7 @@
 
 // Tenta pegar o fuso IANA do próprio dispositivo via Intl
 export const getDeviceTimeZone = () => {
-  try {
-    // Android/iOS modernos retornam algo como "America/Sao_Paulo"
-    const tz = global?.Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone;
-    if (tz && typeof tz === 'string') return tz;
-  } catch (_) {}
-  // fallback seguro
+  // Regra de negócio: sempre forçar o horário de Brasília (America/Sao_Paulo)
   return 'America/Sao_Paulo';
 };
 

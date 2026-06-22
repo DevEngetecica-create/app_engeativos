@@ -23,6 +23,11 @@ import { db } from '../../../../config/database/database';
 import { showToast } from '../../../../utils/toast';
 import { nowLocalTimestamp } from '../../../../utils/datetime';
 import { nowLocalDMYHM } from '../../../../utils/datetime';
+import {
+  integerInputBlockingSeparators,
+  integerNumberValue,
+  onlyDigits
+} from '../../../../utils/numberInput';
 
 // =========================================
 // 🔹 ESCALAS DE FONTE (defina ANTES dos styled-components)
@@ -53,6 +58,21 @@ const getUsuarioEmail = async () => {
   } catch (e) {
     console.error("Erro ao buscar usuário:", e);
     return null;
+  }
+};
+
+const registrarEvidenciasItens = async (itens = [], userEmail = null, agora = nowLocalTimestamp()) => {
+  for (const item of itens) {
+    if (!item?.id_local || !item?.arquivo_app || !String(item.arquivo_app).startsWith('file://')) continue;
+
+    const idLocalEvidencia = `veiculo_checklist_itens_realizados:${item.id_local}:arquivo_app`;
+    const nomeArquivo = item.arquivo_app.split('/').pop() || item.arquivo_app;
+    await executeSql(
+      `INSERT OR REPLACE INTO veiculo_checklist_evidencias
+        (id_local, parent_tabela, parent_id_local, campo_foto, arquivo_local, arquivo_app, user_create, created_at, updated_at, sync_status)
+       VALUES (?, 'veiculo_checklist_itens_realizados', ?, 'arquivo_app', ?, ?, ?, ?, ?, 0);`,
+      [idLocalEvidencia, item.id_local, item.arquivo_app, nomeArquivo, userEmail || null, agora, agora]
+    );
   }
 };
 
@@ -151,7 +171,7 @@ const Border = styled.View`
 // =========================================
 export default function CreateChecklistRealizadosAccordion() {
   const navigation = useNavigation();
-  const { id: id_checklist, id_veiculo, id_obra, prefixo } = useRoute().params;
+  const { id: id_checklist, id_veiculo, id_obra, prefixo, isFechamento, id_aberto_ref } = useRoute().params || {};
 
   const [errors, setErrors] = useState(null);
   const [items, setItems] = useState([]);
@@ -169,12 +189,13 @@ export default function CreateChecklistRealizadosAccordion() {
 
   const [vehicleInfo, setVehicleInfo] = useState({
     tipo: null,
+    tipo_hr: 0,
+    tipo_km: 0,
     maiorHrNum: 0,
     maiorHodNum: 0,
     idObra: '',
     idVeiculo: '',
   });
-
 
   // =========================================
   // 🔹 BUSCAR DADOS
@@ -198,50 +219,49 @@ export default function CreateChecklistRealizadosAccordion() {
       setItems(lista);
       setTemChecklist(lista.length > 0);
 
+      // Regra de negocio: veiculos.tipo_hr=1 -> grava em veiculo_horimetro;
+      //                   veiculos.tipo_km=1 -> grava em veiculo_quilometragems.
+      // Se nenhum dos dois esta ativo, o checklist nao tera medicao associada.
       const veic = await executeSql(
-        `SELECT tipo, obra_id, id, modelo, marca, ano FROM veiculos WHERE id = ?`,
+        `SELECT tipo, tipo_hr, tipo_km, obra_id, id, modelo, marca, ano FROM veiculos WHERE id = ?`,
         [id_veiculo]
       );
       const vehicleData = veic[0] || {};
+      const tipoHr = Number(vehicleData.tipo_hr) === 1 ? 1 : 0;
+      const tipoKm = Number(vehicleData.tipo_km) === 1 ? 1 : 0;
 
       setVehicleInfo(prev => ({
         ...prev,
         tipo: vehicleData.tipo,
+        tipo_hr: tipoHr,
+        tipo_km: tipoKm,
         idObra: vehicleData.obra_id,
         idVeiculo: vehicleData.id,
       }));
 
       let maxValorNum = 0;
 
-      if (vehicleData.tipo == 4) {
+      if (tipoHr === 1) {
         const hrResult = await executeSql(
           `SELECT MAX(horimetro_novo) as maximo FROM veiculo_horimetro WHERE veiculo_id = ?`,
           [id_veiculo]
         );
-        maxValorNum = Number(hrResult[0]?.maximo ?? 0) || 0;
-
-        setVehicleInfo(prev => ({
-          ...prev,
-          maiorHrNum: maxValorNum,
-        }));
-      } else {
+        maxValorNum = integerNumberValue(hrResult[0]?.maximo, 0);
+        setVehicleInfo(prev => ({ ...prev, maiorHrNum: maxValorNum }));
+      } else if (tipoKm === 1) {
         const hodResult = await executeSql(
           `SELECT MAX(quilometragem_nova) as maximo FROM veiculo_quilometragems WHERE veiculo_id = ?`,
           [id_veiculo]
         );
-        maxValorNum = Number(hodResult[0]?.maximo ?? 0) || 0;
-
-        setVehicleInfo(prev => ({
-          ...prev,
-          maiorHodNum: maxValorNum,
-        }));
+        maxValorNum = integerNumberValue(hodResult[0]?.maximo, 0);
+        setVehicleInfo(prev => ({ ...prev, maiorHodNum: maxValorNum }));
       }
 
       setValorAtual(String(maxValorNum));
 
       const initialForms = lista.reduce((acc, item) => ({
         ...acc,
-        [item.id]: { status: 'sim', observacao: '', image: null, dataCadastro: dataAtual }
+        [item.id]: { status: 'SIM', observacao: '', image: null, dataCadastro: dataAtual }
       }), {});
       setForms(initialForms);
 
@@ -255,6 +275,54 @@ export default function CreateChecklistRealizadosAccordion() {
   }, [id_checklist, id_veiculo]);
 
   useFocusEffect(useCallback(() => { fetchItems(); }, [fetchItems]));
+
+  // Validacao em tempo real do hr/km atual:
+  //  - bloqueia ponto/virgula/ponto-virgula (so inteiros)
+  //  - quando tipo_hr=1: bloqueia salto > 10h (jornada maxima de trabalho)
+  //  - bloqueia valor < anterior
+  //  - bloqueia valor IGUAL ao anterior (deve haver progresso)
+  const atualizarValorAtual = (texto, valorAnterior, mensagemMenor) => {
+    const textoValor = String(texto ?? '');
+
+    if (/[.,;]/.test(textoValor)) {
+      setValorAtual(prev => onlyDigits(prev));
+      setInputError('Digite somente numeros, sem ponto, virgula ou ponto e virgula.');
+      return;
+    }
+
+    const atualStr = integerInputBlockingSeparators(textoValor, valorAtual);
+    setValorAtual(atualStr);
+
+    if (atualStr === '') {
+      setInputError('');
+      return;
+    }
+
+    const atual = Number(atualStr || 0);
+    const anterior = Number(valorAnterior || 0);
+    const usaHorimetro = Number(vehicleInfo.tipo_hr) === 1;
+
+    if (atual < anterior) {
+      setInputError(mensagemMenor);
+      return;
+    }
+
+    if (atual === anterior && anterior > 0) {
+      setInputError(
+        usaHorimetro
+          ? 'O horimetro atual deve ser maior que o anterior.'
+          : 'A quilometragem atual deve ser maior que a anterior.'
+      );
+      return;
+    }
+
+    if (usaHorimetro && (atual - anterior) > 10) {
+      setInputError(`Salto maximo permitido: 10h (anterior=${anterior}, max=${anterior + 10}).`);
+      return;
+    }
+
+    setInputError('');
+  };
 
   // =========================================
   // 🔹 CAPTURAR FOTO
@@ -306,20 +374,57 @@ export default function CreateChecklistRealizadosAccordion() {
     try {
       const userEmail = await getUsuarioEmail();
 
-      const parsedValorAtual = Number(valorAtual);
-      if (isNaN(parsedValorAtual)) throw new Error('Valor atual inválido.');
+      const usaHorimetro = Number(vehicleInfo.tipo_hr) === 1;
+      const usaQuilometragem = Number(vehicleInfo.tipo_km) === 1;
 
-      const isMaquina = vehicleInfo.tipo == 4;
-      const valorAnterior = isMaquina
+      if (!usaHorimetro && !usaQuilometragem) {
+        Alert.alert(
+          'Configuracao do veiculo',
+          'Este veiculo nao esta configurado para horimetro nem para quilometragem. ' +
+          'Ajuste o cadastro do veiculo (tipo_hr ou tipo_km) antes de realizar o checklist.'
+        );
+        setLoading(false);
+        return;
+      }
+
+      const valorAtualLimpo = onlyDigits(valorAtual);
+      setValorAtual(valorAtualLimpo);
+      const parsedValorAtual = integerNumberValue(valorAtualLimpo, NaN);
+      if (Number.isNaN(parsedValorAtual)) throw new Error('Valor atual invalido.');
+
+      const valorAnterior = usaHorimetro
         ? (vehicleInfo.maiorHrNum || 0)
         : (vehicleInfo.maiorHodNum || 0);
 
       if (parsedValorAtual < valorAnterior) {
         Alert.alert(
           "Valor inválido",
-          isMaquina
+          usaHorimetro
             ? `O horímetro atual (${parsedValorAtual}) não pode ser menor que o anterior (${valorAnterior}).`
             : `A quilometragem atual (${parsedValorAtual}) não pode ser menor que a anterior (${valorAnterior}).`
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Hr/km atual nao pode ser IGUAL ao anterior (precisa ter progresso).
+      if (parsedValorAtual === valorAnterior && valorAnterior > 0) {
+        Alert.alert(
+          'Valor invalido',
+          usaHorimetro
+            ? `O horimetro atual deve ser maior que o anterior (${valorAnterior}).`
+            : `A quilometragem atual deve ser maior que a anterior (${valorAnterior}).`
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Horimetro: bloqueia jornadas absurdas (> 10h de uso entre dois checklists).
+      if (usaHorimetro && (parsedValorAtual - valorAnterior) > 10) {
+        Alert.alert(
+          'Salto invalido',
+          `Diferenca maxima permitida entre horimetro atual e anterior: 10h.\n\n` +
+          `Anterior: ${valorAnterior}\nAtual: ${parsedValorAtual}\nDiferenca: ${parsedValorAtual - valorAnterior}h`
         );
         setLoading(false);
         return;
@@ -330,6 +435,7 @@ export default function CreateChecklistRealizadosAccordion() {
 
       // monta os itens (sem gravar ainda)
       const itens = Object.entries(forms).map(([itemId, f]) => ({
+        id_local: uuid.v4(),
         id_obra: vehicleInfo.idObra,
         id_checklist: id_checklist,
         id_checklist_realizado: idLocalTemp, // FK local (token)
@@ -339,10 +445,10 @@ export default function CreateChecklistRealizadosAccordion() {
         status: f.status,
         arquivo_app: f.image || null,
         user_create: userEmail ?? 'desconhecido',
-        horimetro_atual: isMaquina ? valorAnterior : null,
-        horimetro_novo: isMaquina ? parsedValorAtual : null,
-        quilometragem_atual: !isMaquina ? valorAnterior : null,
-        quilometragem_nova: !isMaquina ? parsedValorAtual : null,
+        horimetro_atual: usaHorimetro ? valorAnterior : null,
+        horimetro_novo: usaHorimetro ? parsedValorAtual : null,
+        quilometragem_atual: usaQuilometragem ? valorAnterior : null,
+        quilometragem_nova: usaQuilometragem ? parsedValorAtual : null,
         observacao: f.observacao,
         sync_status: 0,
         created_at: agora,
@@ -350,18 +456,23 @@ export default function CreateChecklistRealizadosAccordion() {
         updated_at: agora,
       }));
 
+      // id_local da medicao — UUID gerado no app, usado pelo backend para UPSERT idempotente
+      const idLocalMedicao = uuid.v4();
+
       await new Promise((resolve, reject) => {
         db.transaction(tx => {
-          // 1) Inserir medição e capturar insertId
-          const medicaoSQL = isMaquina
-            ? `INSERT INTO veiculo_horimetro 
-               (veiculo_id, id_obra, horimetro_atual, horimetro_novo, data_horimetro, sync_status, user_create, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`
-            : `INSERT INTO veiculo_quilometragems 
-               (veiculo_id, id_obra, quilometragem_atual, quilometragem_nova, data_quilometragem, sync_status, user_create, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`;
+          // 1) Insere a medicao na tabela CERTA (horimetro OU quilometragem)
+          // com id_local e captura o insertId — vinculado ao servico via id_horimetro/id_quilometragem.
+          const medicaoSQL = usaHorimetro
+            ? `INSERT INTO veiculo_horimetro
+               (id_local, veiculo_id, id_obra, horimetro_atual, horimetro_novo, data_horimetro, sync_status, user_create, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+            : `INSERT INTO veiculo_quilometragems
+               (id_local, veiculo_id, id_obra, quilometragem_atual, quilometragem_nova, data_quilometragem, sync_status, user_create, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`;
 
           const medicaoParams = [
+            idLocalMedicao,
             vehicleInfo.idVeiculo,
             vehicleInfo.idObra,
             valorAnterior,
@@ -386,16 +497,21 @@ export default function CreateChecklistRealizadosAccordion() {
                 id_local: idLocalTemp,
                 id_obra: vehicleInfo.idObra,
                 id_veiculo: vehicleInfo.idVeiculo,
-                status: 'Realizado',
+                id_checklist: id_checklist,
+                status: isFechamento ? 'Fechamento' : 'Realizado',
+                status_ciclo: isFechamento ? 'CONCLUIDO' : 'ABERTO',
+                tipo_checklist: isFechamento ? 'FECHAMENTO' : 'ABERTURA',
+                id_abertura_vinculada: isFechamento ? id_aberto_ref : null,
+                data_fechamento: isFechamento ? agora : null,
                 data_cadastro: agora,
                 sync_status: 0,
                 created_at: agora,
                 deleted_at: null,
                 updated_at: agora,
                 user_create: userEmail ?? 'desconhecido',
-                // preenche o vínculo correto:
-                id_horimetro: isMaquina ? medicaoId : null,
-                id_quilometragem: !isMaquina ? medicaoId : null,
+                // Vinculo correto: tipo_hr -> id_horimetro, tipo_km -> id_quilometragem.
+                id_horimetro: usaHorimetro ? medicaoId : null,
+                id_quilometragem: usaQuilometragem ? medicaoId : null,
               };
 
               const colsPai = Object.keys(pai).join(', ');
@@ -406,13 +522,18 @@ export default function CreateChecklistRealizadosAccordion() {
                 `INSERT INTO veiculo_checklist_itens_servicos (${colsPai}) VALUES (${phPai});`,
                 valsPai,
                 () => {
-                  // 3) Inserir todos os ITENS realizados
-                  insertItensSequencial(
-                    tx,
-                    itens,
-                    () => resolve(),           // sucesso total da transação
-                    (err) => reject(err)
-                  );
+                  if (isFechamento && id_aberto_ref) {
+                    tx.executeSql(
+                      `UPDATE veiculo_checklist_itens_servicos SET status_ciclo = 'CONCLUIDO', data_fechamento = ?, sync_status = 0 WHERE id_local = ?;`,
+                      [agora, id_aberto_ref],
+                      () => {
+                        insertItensSequencial(tx, itens, () => resolve(), (err) => reject(err));
+                      },
+                      (_, err) => { reject(err); return true; }
+                    );
+                  } else {
+                    insertItensSequencial(tx, itens, () => resolve(), (err) => reject(err));
+                  }
                 },
                 (_, err) => { reject(err); return true; }
               );
@@ -427,6 +548,11 @@ export default function CreateChecklistRealizadosAccordion() {
       });
 
       showToast("✅ Checklist salvo com sucesso!", "success");
+      try {
+        await registrarEvidenciasItens(itens, userEmail, agora);
+      } catch (evidenciaError) {
+        console.warn('Evidencias serao materializadas na sincronizacao:', evidenciaError?.message);
+      }
       navigation.goBack();
 
     } catch (e) {
@@ -449,7 +575,13 @@ export default function CreateChecklistRealizadosAccordion() {
       <Container>
         <Card>
           <ErrorAlert errors={errors} />
-          {vehicleInfo.tipo == 4 ? (
+
+          <View style={{ backgroundColor: isFechamento ? '#e74c3c' : '#2ecc71', padding: 8, borderRadius: 6, marginBottom: 10, alignItems: 'center' }}>
+             <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+               {isFechamento ? 'MODO FECHAMENTO' : 'MODO ABERTURA'}
+             </Text>
+          </View>
+          {vehicleInfo.tipo_hr == 1 ? (
             <Text style={styles.infoText}>🕒 {`Veículo: ${prefixo} |  🗓️ ${dataAtualString}`}</Text>
           ) : (
             <Text style={styles.infoText}>🛻 {`Veículo: ${prefixo} |  🗓️ ${dataAtualString}`}</Text>
@@ -486,7 +618,7 @@ export default function CreateChecklistRealizadosAccordion() {
           {/* Com checklist */}
           {temChecklist && (
             <>
-              {vehicleInfo.tipo == 4 ? (
+              {vehicleInfo.tipo_hr == 1 ? (
                 <Card style={{ borderLeftWidth: 6, borderLeftColor: '#e67e22', backgroundColor: '#fff9f2' }}>
                   <View style={styles.metricaHeader}>
                     <Text style={[styles.metricaTitle, { color: '#e67e22' }]}>Horímetro</Text>
@@ -508,14 +640,13 @@ export default function CreateChecklistRealizadosAccordion() {
                       <Input
                         value={valorAtual}
                         error={!!inputError}
-                        onChangeText={(t) => {
-                          const atualStr = t.replace(/[^0-9.]/g, "");
-                          setValorAtual(atualStr);
-                          const atual = Number(atualStr || 0);
-                          if (atual < (vehicleInfo.maiorHrNum || 0)) setInputError('⚠️ O horímetro atual não pode ser menor que o anterior.');
-                          else setInputError('');
-                        }}
-                        keyboardType="numeric"
+                        onChangeText={(t) => atualizarValorAtual(
+                          t,
+                          vehicleInfo.maiorHrNum,
+                          '⚠️ O horímetro atual não pode ser menor que o anterior.'
+                        )}
+                        onEndEditing={() => setValorAtual(prev => onlyDigits(prev))}
+                        keyboardType="number-pad"
                         placeholder="Digite o horímetro atual"
                         style={{ fontSize: BASE_FS * INC_BIG, paddingVertical: 12 }}
                       />
@@ -545,14 +676,13 @@ export default function CreateChecklistRealizadosAccordion() {
                       <Input
                         value={valorAtual}
                         error={!!inputError}
-                        onChangeText={(t) => {
-                          const atualStr = t.replace(/[^0-9.]/g, "");
-                          setValorAtual(atualStr);
-                          const atual = Number(atualStr || 0);
-                          if (atual < (vehicleInfo.maiorHodNum || 0)) setInputError('⚠️ A quilometragem atual não pode ser menor que a anterior.');
-                          else setInputError('');
-                        }}
-                        keyboardType="numeric"
+                        onChangeText={(t) => atualizarValorAtual(
+                          t,
+                          vehicleInfo.maiorHodNum,
+                          '⚠️ A quilometragem atual não pode ser menor que a anterior.'
+                        )}
+                        onEndEditing={() => setValorAtual(prev => onlyDigits(prev))}
+                        keyboardType="number-pad"
                         placeholder="Digite a quilometragem atual"
                         style={{ fontSize: BASE_FS * INC_BIG, paddingVertical: 12, backgroundColor: '#aaf0a8ff', textAlign: 'center' }}
                       />
@@ -577,15 +707,15 @@ export default function CreateChecklistRealizadosAccordion() {
                       <FormView>
                         <Label>Data</Label>
                         <Text style={styles.valueText}>{f.dataCadastro}</Text>
-                        <Label>Status</Label>
+                        <Label>Conforme?</Label>
                         <Picker
                           selectedValue={f.status}
                           onValueChange={v =>
                             setForms(p => ({ ...p, [item.id]: { ...p[item.id], status: v } }))
                           }
                         >
-                          <Picker.Item label="Sim" value="sim" />
-                          <Picker.Item label="Não" value="nao" />
+                          <Picker.Item label="SIM" value="SIM" />
+                          <Picker.Item label="NÃO" value="NÃO" />
                         </Picker>
                         <Label>Observação</Label>
                         <Input

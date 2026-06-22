@@ -99,7 +99,10 @@ export default function ChecklistRespostas() {
         return;
       }
       if (resultado.ok) {
-        Toast.show("✅ Respostas salvas com sucesso!", { duration: 2000 });
+        Toast.show(
+          "✅ Salvo no dispositivo. Sincronize quando tiver internet.",
+          { duration: 2500 }
+        );
         navigation.goBack();
       }
     } catch (error) {

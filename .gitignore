@@ -28,6 +28,10 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# Pastas nativas geradas por prebuild — EAS regenera no build via CNG
+/android
+/ios
+
 # --- SISTEMA / SO ---
 .DS_Store
 Thumbs.db

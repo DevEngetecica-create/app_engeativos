@@ -73,7 +73,7 @@ function loadImagensPreenchidas(itemIdLocal, setState) {
   if (!itemIdLocal) return;
   db.transaction((tx) => {
     tx.executeSql(
-      `SELECT arquivo_app FROM sms_checklist_preenchido_imagens WHERE preenchido_id = ?`,
+      `SELECT arquivo_local, arquivo_app FROM sms_checklist_preenchido_imagens WHERE preenchido_id = ?`,
       [itemIdLocal],
       (txObj, { rows: { _array: imagens } }) => {
         setState((s) => {
@@ -89,7 +89,7 @@ function loadImagensPreenchidas(itemIdLocal, setState) {
           }
 
           imagens.forEach((img) => {
-            respostasAtualizadas[chave].imagens.push({uri : img.arquivo_app, saved: true});
+            respostasAtualizadas[chave].imagens.push({ uri: img.arquivo_local || img.arquivo_app, saved: true });
           });
           
 
@@ -182,11 +182,12 @@ function inserirImagensChecklistTx(tx, preenchido_id, imagens = [], funcionario_
 
     tx.executeSql(
       `INSERT INTO sms_checklist_preenchido_imagens
-        (id_local, preenchido_id, arquivo_app, user_create, created_at, sync_status)
-       VALUES (?, ?, ?, ?, ?, 0)`,
+        (id_local, preenchido_id, arquivo_local, arquivo_app, user_create, created_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`,
       [
         idLocalImg,
         preenchido_id,           // vincula a imagem ao checklist preenchido
+        img.uri,
         img.uri,                 // caminho da imagem ou base64
         funcionario_inspecao,
         dataAtual

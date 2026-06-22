@@ -23,7 +23,9 @@ const isDev = APP_ENV === "development";
 const apiBaseUrl =
   process.env.APP_API_URL ||
   (isDev
-    ? "http://127.0.0.1:8000/api/"
+    // ⚠️ TEMPORARIO (teste contra producao): dev apontando para producao.
+    // REVERTER para "http://127.0.0.1:8000/api/" ao voltar ao dev local.
+    ? "https://sga-engeativos.com.br/api/"
     : "https://sga-engeativos.com.br/api/");
 
 // Reconstrói os plugins ajustando expo-build-properties:

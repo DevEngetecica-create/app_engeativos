@@ -1,5 +1,6 @@
 import { db } from "@/config/database/database";
 import * as FileSystem from 'expo-file-system';
+import uuid from 'react-native-uuid';
 
 
 export const loadAssinaturas = async ({ realizado_id, setState }) => {
@@ -13,7 +14,7 @@ export const loadAssinaturas = async ({ realizado_id, setState }) => {
                         const assinaturas = _array.map((item, i) => ({
                             nome: item.nome || "",
                             cpf: item.cpf || "",
-                            assinaturaUri: item.arquivo_app || null,
+                            assinaturaUri: item.arquivo_local || item.arquivo_app || null,
                             trabalhador_externo: item.trabalhador_externo || 0,
                             showSignature: false,
                             index: i,
@@ -110,40 +111,60 @@ export const handleCPFChange = async (index, text, handleChangeAssinatura) => {
   }
 };
 
-// PRE-SALVA todas as assinaturas no dispositivo e retorna um array com metadados
-export async function prepararAssinaturas(assinaturas = {}) {
-  const entries = Object.entries(assinaturas || {});
+// Normaliza entrada (array OU objeto) em uma lista de [chave, assinatura]
+function normalizarAssinaturas(entrada) {
+  if (!entrada) return [];
 
+  // Array vindo do componente Assinatura: [{ nome, cpf, assinaturaUri, ... }, ...]
+  if (Array.isArray(entrada)) {
+    return entrada.map((assinatura, index) => [String(assinatura?.campo_id ?? assinatura?.index ?? index), assinatura]);
+  }
+
+  // Objeto/dict { campo_id: assinatura }
+  if (typeof entrada === 'object') {
+    return Object.entries(entrada).map(([chave, assinatura]) => [String(chave), assinatura]);
+  }
+
+  return [];
+}
+
+// PRE-SALVA todas as assinaturas no dispositivo e retorna um array com metadados.
+// Aceita array (do componente Assinatura) OU objeto (legado).
+export async function prepararAssinaturas(assinaturas) {
+  const entries = normalizarAssinaturas(assinaturas);
   if (entries.length === 0) return [];
 
-  // filtra assinaturas inválidas ANTES de processar
+  // Filtra invalidas antes de tocar disco
   const validas = entries.filter(([_, assinatura]) =>
     assinatura &&
-    typeof assinatura === "object" &&
+    typeof assinatura === 'object' &&
     assinatura.assinaturaUri &&
     assinatura.nome
   );
-
-  // se nenhuma assinatura válida existir, retorna vazio
   if (validas.length === 0) return [];
 
-  // salva apenas as válidas
-  const saved = await Promise.all(
-    validas.map(async ([campo_id, assinatura]) => {
+  const saved = [];
+  for (const [campo_id, assinatura] of validas) {
+    try {
       const { caminho, nomeArquivo } = await salvarAssinaturaNoDispositivo(
         assinatura.assinaturaUri,
         assinatura.nome
       );
 
-      return {
+      saved.push({
         campo_id,
         caminho,
         nome: assinatura.nome || null,
         cpf: assinatura.cpf || null,
-        nomeArquivo
-      };
-    })
-  );
+        trabalhador_externo: assinatura.trabalhador_externo ?? null,
+        nomeArquivo,
+      });
+    } catch (err) {
+      // Falha ao gravar arquivo de UMA assinatura nao deve abortar todo o checklist.
+      // O usuario pode reabrir o checklist e re-assinar antes do upload.
+      console.error(`Falha ao salvar assinatura (campo_id=${campo_id}):`, err?.message);
+    }
+  }
 
   return saved;
 }
@@ -152,28 +173,53 @@ export async function prepararAssinaturas(assinaturas = {}) {
 // Inserção síncrona de assinaturas dentro da transaction (sem await!)
 export function inserirAssinaturasTx(tx, realizado_id, assinaturasPreparadas = [], dataAtual) {
   assinaturasPreparadas.forEach((a) => {
+    const idLocalTemp = uuid.v4();
     tx.executeSql(
       `INSERT INTO sms_checklist_preenchido_assinaturas
-        (realizado_id, arquivo_app, cpf, nome, trabalhador_externo, user_create, created_at, sync_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+        (id_local, realizado_id, arquivo_local, arquivo_app, cpf, nome, trabalhador_externo, user_create, created_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
+        idLocalTemp,
         realizado_id,
+        a.caminho,
         a.caminho,
         a.cpf,
         a.nome,
-        null,
+        a.trabalhador_externo ?? null,
         "user_local",
-        dataAtual
+        dataAtual,
       ]
     );
   });
 }
 
 async function salvarAssinaturaNoDispositivo(base64, nome) {
-  const nomeArquivo = `assinatura_${nome}_${Date.now()}.png`;
   const diretorio = 'SMS/assinaturas/';
-  const caminho = FileSystem.documentDirectory + diretorio + nomeArquivo;
-  base64 = base64.replace(/^data:image\/\w+;base64,/, '');
+  const dirPath = FileSystem.documentDirectory + diretorio;
+
+  await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+
+  if (
+    typeof base64 === 'string' &&
+    (base64.startsWith('file://') || base64.startsWith(FileSystem.documentDirectory))
+  ) {
+    const info = await FileSystem.getInfoAsync(base64);
+    if (!info?.exists) {
+      throw new Error('Arquivo local da assinatura não encontrado.');
+    }
+
+    const nomeArquivoExistente = base64.split('/').pop();
+    return { caminho: base64, nomeArquivo: nomeArquivoExistente };
+  }
+
+  const nomeSeguro = String(nome || 'assinatura').replace(/[^\w.-]+/g, '_');
+  const nomeArquivo = `assinatura_${nomeSeguro}_${Date.now()}.png`;
+  const caminho = dirPath + nomeArquivo;
+  base64 = String(base64 || '').replace(/^data:image\/\w+;base64,/, '');
+  if (!base64) {
+    throw new Error('Assinatura vazia ou inválida.');
+  }
+
   await FileSystem.writeAsStringAsync(caminho, base64, {
     encoding: FileSystem.EncodingType.Base64,
   });

@@ -1,18 +1,13 @@
 // src/pages/Checklists/index.js
 import React, { useCallback, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 
-import Toast from "react-native-root-toast";
-import { useAuth } from "@/contexts/auth";
 import styles from "./checklists.styles";
-import { fetchOnline, fetchOffline } from "./checklists.functions";
+import { fetchOffline } from "./checklists.functions";
 
 export default function SMSChecklists() {
   const navigation = useNavigation();
-  const { connectionMode } = useAuth();
-  const modoOnline = connectionMode === "online";
   const route = useRoute();
   const idObra = route.params.obra;
   const nome_obra = route.params.nome_obra;
@@ -25,35 +20,22 @@ export default function SMSChecklists() {
   });
 
   // ===============================
-  // 🔹 Carregar lista
+  // 🔹 Carregar lista (offline-first: SQLite e o download oficial atualiza o cache)
   // ===============================
   const loadChecklists = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      let result;
-      if (modoOnline && false) {
-        try {
-          Toast.show("🟢 Carregando checklists online...", { duration: 500 });
-          result = await fetchOnline();
-        } catch (err) {
-          console.warn("⚠️ Falha online, fallback para SQLite:", err.message);
-          Toast.show("🔴 Carregando checklists offline...", { duration: 1500 });
-          result = await fetchOffline(idObra);
-        }
-      } else {
-        // Toast.show("🔴 Carregando checklists offline...", { duration: 500 });
-        result = await fetchOffline(idObra);
-      }
+      const result = await fetchOffline(idObra);
       setState({ loading: false, error: null, ...result });
     } catch (error) {
       setState((s) => ({ ...s, loading: false, error }));
     }
-  }, [modoOnline]);
+  }, [idObra]);
 
   useFocusEffect(
     useCallback(() => {
       loadChecklists();
-    }, [modoOnline])
+    }, [loadChecklists])
   );
 
   // ===============================

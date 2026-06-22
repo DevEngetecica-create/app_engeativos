@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ScrollView,
   View,
@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import styled from 'styled-components/native';
 import { db, executeSql } from '../../../config/database/database';
 
@@ -87,7 +88,7 @@ export default function DiarioList() {
   const [registros, setRegistros] = useState([]);
   const route = useRoute();
 
-  const { id_veiculo, prefixo, id_obra } = route.params; // id do veículo
+  const { id_veiculo, prefixo, id_obra } = route.params || {}; // id do veículo
 
   const fetchRegistros = useCallback(async () => {
     setLoading(true);
@@ -97,10 +98,11 @@ export default function DiarioList() {
       const sql = `
         SELECT *
         FROM veiculos_diario_bordo
-        WHERE DATE(data_cadastro) BETWEEN DATE(?) AND DATE(?)
+        WHERE id_veiculo = ? 
+          AND (DATE(data_cadastro) BETWEEN DATE(?) AND DATE(?) OR ciclo_status = 'ABERTO')
         ORDER BY datetime(data_cadastro) DESC
       `;
-      const res = await executeSql(sql, [start, end]);
+      const res = await executeSql(sql, [id_veiculo, start, end]);
       setRegistros(res);
     } catch (e) {
       console.error('Erro ao buscar registros locais:', e);
@@ -110,9 +112,41 @@ export default function DiarioList() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchRegistros();
-  }, [fetchRegistros]);
+  const handleNovoDiario = async () => {
+    try {
+      const resUser = await executeSql(`SELECT email FROM users LIMIT 1`);
+      const email = resUser.length ? resUser[0].email : null;
+
+      const sql = `
+        SELECT id FROM veiculos_diario_bordo
+        WHERE id_veiculo = ?
+          AND user_create = ?
+          AND ciclo_status = 'ABERTO'
+          AND deleted_at IS NULL
+        LIMIT 1
+      `;
+      const abertos = await executeSql(sql, [id_veiculo, email]);
+
+      if (abertos.length > 0) {
+        Alert.alert(
+          'Diário em aberto',
+          'Você possui um Diário de Bordo em aberto para este veículo. Encerre a atividade anterior antes de abrir um novo diário.'
+        );
+        return;
+      }
+
+      navigation.navigate('VeiculosDiarioBordoCreate', { id_veiculo: id_veiculo, prefixo: prefixo, id_obra: id_obra });
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Erro', 'Não foi possível verificar diários abertos.');
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegistros();
+    }, [fetchRegistros])
+  );
 
   if (loading) {
     return (
@@ -140,6 +174,11 @@ export default function DiarioList() {
           ) : (
             registros.map(item => (
               <Card key={item.id} tipo={item.tipo}>
+                <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: item.ciclo_status === 'ABERTO' ? '#f39c12' : '#2ecc71', marginBottom: 8 }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>
+                    Ciclo: {item.ciclo_status === 'ABERTO' ? 'Aberto' : 'Encerrado'}
+                  </Text>
+                </View>
                 <Label>Data Cadastro:</Label>
                 <Value>{item.data_cadastro}</Value>
 
@@ -172,12 +211,14 @@ export default function DiarioList() {
                 )}
 
                 <BtnGroup>
-                  <Btn
-                    color="#f39c12"
-                    onPress={() => navigation.navigate('VeiculosDiarioBordoEdit', { id: item.id })}
-                  >
-                    <BtnText>Editar</BtnText>
-                  </Btn>
+                  {item.ciclo_status === 'ABERTO' && (
+                    <Btn
+                      color="#f39c12"
+                      onPress={() => navigation.navigate('VeiculosDiarioBordoEdit', { id: item.id })}
+                    >
+                      <BtnText>Encerrar</BtnText>
+                    </Btn>
+                  )}
                   <Btn
                     color="#3498db"
                     onPress={() => navigation.navigate('VeiculosDiarioBordoShow', { id: item.id })}
@@ -194,9 +235,7 @@ export default function DiarioList() {
       {/* Botão flutuante */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() =>
-          navigation.navigate('VeiculosDiarioBordoCreate', { id_veiculo: id_veiculo, prefixo: prefixo, id_obra: id_obra })
-        }
+        onPress={handleNovoDiario}
       >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>

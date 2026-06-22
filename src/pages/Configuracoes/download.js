@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { downloadDados, uploadDados } from '../../config/database/syncService';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { downloadDados, uploadDados, isSyncBusy } from '../../config/database/syncService';
 
 const SyncManager = () => {
   const [status, setStatus] = useState({});
@@ -18,6 +18,11 @@ const SyncManager = () => {
   ];
 
   const executarOperacao = async (tipo) => {
+    if (operacao || isSyncBusy()) {
+      Alert.alert('Aguarde', 'Ja existe uma sincronizacao em andamento.');
+      return;
+    }
+
     setOperacao(tipo);
     setMensagemGeral(tipo === 'download' ? 'Download em andamento...' : 'Upload em andamento...');
     setProgressoGeral(0);
@@ -35,17 +40,25 @@ const SyncManager = () => {
 
     try {
       const funcao = tipo === 'download' ? downloadDados : uploadDados;
-      await funcao((tabela, status, mensagem, progresso) => {
-        setStatus(prev => ({
-          ...prev,
-          [tabela]: { status, mensagem, progresso }
-        }));
+      const resultado = await funcao((tabela, novoStatus, mensagem, progresso) => {
+        setStatus(prev => {
+          const atualizado = {
+            ...prev,
+            [tabela]: { status: novoStatus, mensagem, progresso }
+          };
 
-        // Calcula progresso geral
-        const concluidos = Object.values(status)
-          .filter(s => s.status === 'concluido').length;
-        setProgressoGeral((concluidos / tabelas.length) * 100);
+          const concluidos = Object.values(atualizado)
+            .filter(s => s.status === 'concluido').length;
+          setProgressoGeral((concluidos / tabelas.length) * 100);
+
+          return atualizado;
+        });
       });
+
+      if (resultado?.alreadyRunning || resultado?.success === false) {
+        setMensagemGeral(resultado?.message || `Erro no ${tipo}`);
+        return;
+      }
 
       setMensagemGeral(tipo === 'download' 
         ? 'Download concluído!' 
@@ -67,6 +80,8 @@ const SyncManager = () => {
     }
   };
 
+  const syncBloqueado = !!operacao || isSyncBusy();
+
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Gerenciador de Sincronização</Text>
@@ -86,9 +101,9 @@ const SyncManager = () => {
 
       <View style={styles.botoesContainer}>
         <TouchableOpacity
-          style={[styles.botao, styles.botaoDownload]}
+          style={[styles.botao, styles.botaoDownload, syncBloqueado && { opacity: 0.5 }]}
           onPress={() => executarOperacao('download')}
-          disabled={!!operacao}
+          disabled={syncBloqueado}
         >
           {operacao === 'download' ? (
             <ActivityIndicator color="#FFF" />
@@ -98,9 +113,9 @@ const SyncManager = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.botao, styles.botaoUpload]}
+          style={[styles.botao, styles.botaoUpload, syncBloqueado && { opacity: 0.5 }]}
           onPress={() => executarOperacao('upload')}
-          disabled={!!operacao}
+          disabled={syncBloqueado}
         >
           {operacao === 'upload' ? (
             <ActivityIndicator color="#FFF" />

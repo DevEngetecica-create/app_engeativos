@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
-  ScrollView,
+  FlatList,
   RefreshControl,
   View,
   Text,
@@ -152,57 +152,56 @@ export default function ChecklistIndex() {
     );
   }
 
-  if (!loading && checklists.length === 0) {
+  const renderHeader = () => (
+    <TouchableOpacity
+      style={styles.btnPrimary}
+      onPress={() => navigation.navigate("ChecklistCreate")}
+    >
+      <Ionicons name="add-circle-outline" size={20} color="#fff" />
+      <Text style={styles.btnText}>Novo Checklist</Text>
+    </TouchableOpacity>
+  );
+
+  const renderEmpty = () => {
+    if (loading) return null;
     return (
-      <Container style={{ justifyContent: "center", alignItems: "center" }}>
+      <View style={{ alignItems: "center", marginTop: 40 }}>
         <Image
           source={EmptyChecklist}
           style={{ width: 220, height: 220, marginBottom: 10 }}
           resizeMode="contain"
         />
-        <Text style={{ color: "#666", fontSize: 16, marginBottom: 20 }}>
-          Nenhum checklist encontrado
-        </Text>
-
-        <TouchableOpacity
-          style={styles.btnPrimary}
-          onPress={() => navigation.navigate("ChecklistCreate")}
-        >
-          <Ionicons name="add-circle-outline" size={20} color="#fff" />
-          <Text style={styles.btnText}>Novo Checklist</Text>
-        </TouchableOpacity>
-      </Container>
+        <Text style={{ color: "#666", fontSize: 16 }}>Nenhum checklist encontrado</Text>
+      </View>
     );
-  }
+  };
+
+  const renderItem = ({ item }) => (
+    <Card onPress={() => navigation.navigate("ChecklistShow", { id: item.id })}>
+      <Info>
+        <Title>{item.modelo || "Modelo não informado"}</Title>
+        <Subtitle>Placa: {item.placa || "-"}</Subtitle>
+        <Subtitle>Data: {item.data || "-"}</Subtitle>
+      </Info>
+      <StatusBadge $status={item.status}>
+        <StatusText>{item.status}</StatusText>
+      </StatusBadge>
+    </Card>
+  );
 
   return (
-    <ScrollView
-      contentContainerStyle={{ flexGrow: 1 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <Container>
-        <TouchableOpacity
-          style={styles.btnPrimary}
-          onPress={() => navigation.navigate("ChecklistCreate")}
-        >
-          <Ionicons name="add-circle-outline" size={20} color="#fff" />
-          <Text style={styles.btnText}>Novo Checklist</Text>
-        </TouchableOpacity>
-
-        {checklists.map((item) => (
-          <Card key={item.id} onPress={() => navigation.navigate("ChecklistShow", { id: item.id })}>
-            <Info>
-              <Title>{item.modelo || "Modelo não informado"}</Title>
-              <Subtitle>Placa: {item.placa || "-"}</Subtitle>
-              <Subtitle>Data: {item.data || "-"}</Subtitle>
-            </Info>
-            <StatusBadge $status={item.status}>
-              <StatusText>{item.status}</StatusText>
-            </StatusBadge>
-          </Card>
-        ))}
-      </Container>
-    </ScrollView>
+    <Container>
+      <FlatList
+        data={checklists}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      />
+    </Container>
   );
 }
 

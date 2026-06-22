@@ -52,8 +52,8 @@ const NetworkProvider = ({ children }) => {
   // Atualiza estado global sempre que mudar
   globalNetworkStatus = { isOffline, isOnline };
 
-  // Log de diagnóstico
-  console.log(`[Net] ${isOffline ? "OFFLINE" : "ONLINE"} (forçado: ${isForcedOffline})`);
+  // Log de diagnóstico  // Silenciado para evitar poluição visual no terminal
+  // console.log(`[Net] ${isOffline ? "OFFLINE" : "ONLINE"} (forçado: ${isForcedOffline})`);
 
   return (
     <NetworkContext.Provider value={{ isOffline, isOnline, forceOfflineMode }}>

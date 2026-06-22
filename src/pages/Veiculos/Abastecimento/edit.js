@@ -12,6 +12,12 @@ import styled from 'styled-components/native';
 import * as ImagePicker from 'expo-image-picker';
 import { db, executeSql } from '../../../config/database/database';
 import { showToast } from '../../../utils/toast';
+import {
+  integerInputBlockingSeparators,
+  integerInputValue,
+  integerNumberValue,
+  onlyDigits
+} from '../../../utils/numberInput';
 // =============================
 // 🔹 Styled Components
 // =============================
@@ -119,10 +125,10 @@ export default function AbastecimentoEdit() {
         const ab = dados[0];
         setForm({
           ...ab,
-          km_anterior: String(ab.km_anterior || ''),
-          km_atual: String(ab.km_atual || ''),
-          hr_anterior: String(ab.hr_anterior || ''),
-          hr_atual: String(ab.hr_atual || ''),
+          km_anterior: integerInputValue(ab.km_anterior),
+          km_atual: integerInputValue(ab.km_atual),
+          hr_anterior: integerInputValue(ab.hr_anterior),
+          hr_atual: integerInputValue(ab.hr_atual),
           quantidade: String(ab.quantidade || ''),
           valor_do_litro: String(ab.valor_do_litro || ''),
           valor_total: String(ab.valor_total || ''),
@@ -192,12 +198,12 @@ export default function AbastecimentoEdit() {
     }
 
     if (tipoVeiculo == 4) {
-      if (parseFloat(form.hr_atual || 0) < parseFloat(form.hr_anterior || 0)) {
+      if (integerNumberValue(form.hr_atual, 0) < integerNumberValue(form.hr_anterior, 0)) {
         Alert.alert('Erro', 'Horímetro atual não pode ser menor que o anterior.');
         return;
       }
     } else {
-      if (parseFloat(form.km_atual || 0) < parseFloat(form.km_anterior || 0)) {
+      if (integerNumberValue(form.km_atual, 0) < integerNumberValue(form.km_anterior, 0)) {
         Alert.alert('Erro', 'Hodômetro atual não pode ser menor que o anterior.');
         return;
       }
@@ -206,6 +212,10 @@ export default function AbastecimentoEdit() {
     try {
       setLoading(true);
       const dataUpdate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      const kmAnterior = integerInputValue(form.km_anterior);
+      const kmAtual = onlyDigits(form.km_atual);
+      const hrAnterior = integerInputValue(form.hr_anterior);
+      const hrAtual = onlyDigits(form.hr_atual);
 
       await executeSql(
         `UPDATE veiculo_abastecimentos SET 
@@ -214,10 +224,10 @@ export default function AbastecimentoEdit() {
           arquivo_app = ?, user_edit = ?, updated_at = ?, sync_status = 0
         WHERE id = ?`,
         [
-          form.km_anterior,
-          form.km_atual,
-          form.hr_anterior,
-          form.hr_atual,
+          kmAnterior,
+          kmAtual,
+          hrAnterior,
+          hrAtual,
           form.fornecedor,
           form.combustivel,
           form.quantidade,
@@ -273,7 +283,10 @@ export default function AbastecimentoEdit() {
               <Input
                 keyboardType="numeric"
                 value={form.hr_atual}
-                onChangeText={v => setForm({ ...form, hr_atual: v.replace(/[^0-9]/g, '') })}
+                onChangeText={v => setForm({
+                  ...form,
+                  hr_atual: integerInputBlockingSeparators(v, form.hr_atual)
+                })}
               />
             </>
           ) : (
@@ -284,7 +297,10 @@ export default function AbastecimentoEdit() {
               <Input
                 keyboardType="numeric"
                 value={form.km_atual}
-                onChangeText={v => setForm({ ...form, km_atual: v.replace(/[^0-9]/g, '') })}
+                onChangeText={v => setForm({
+                  ...form,
+                  km_atual: integerInputBlockingSeparators(v, form.km_atual)
+                })}
               />
             </>
           )}

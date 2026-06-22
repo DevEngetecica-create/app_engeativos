@@ -128,6 +128,10 @@ export default function ObrasSMS() {
             renderItem={renderObra}
             contentContainerStyle={{ paddingBottom: 40 }}
             showsVerticalScrollIndicator={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
           />
         )}
       </View>

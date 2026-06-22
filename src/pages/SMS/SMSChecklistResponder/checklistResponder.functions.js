@@ -220,8 +220,14 @@ function validarRespostasChecklist({ realizado_id, assinaturas, respostas_campos
       
   }
 
-  if (!realizado_id && (!assinaturas || assinaturas.length === 0)) {
-    return { ok: false, mensagem: "O checklist precisa ser assinado." };
+  if (!realizado_id) {
+    const temAssinaturaValida = Array.isArray(assinaturas)
+      ? assinaturas.some((a) => a && a.assinaturaUri && a.nome)
+      : Object.values(assinaturas || {}).some((a) => a && a.assinaturaUri && a.nome);
+
+    if (!temAssinaturaValida) {
+      return { ok: false, mensagem: "O checklist precisa ser assinado." };
+    }
   }
 
   return { ok: true };

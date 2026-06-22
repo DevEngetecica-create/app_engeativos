@@ -216,7 +216,9 @@ export default function EditChecklistRealizadosAccordion() {
     }
   };
 
-  // Atualiza UM item localmente com sync_status = 0
+  // Atualiza UM item localmente. Marca como pendente novamente (sync_status=0)
+  // e zera sync_attempts/sync_error — assim reativa registros abandonados (99)
+  // ou em erro (3) quando o usuario corrige o conteudo.
   const saveItem = async (itemId) => {
     try {
       const f = forms[itemId];
@@ -230,11 +232,13 @@ export default function EditChecklistRealizadosAccordion() {
       await executeSql(
         `
           UPDATE veiculo_checklist_itens_realizados
-             SET status = ?, 
-                 observacao = ?, 
-                 data_cadastro = ?, 
-                 arquivo_app = ?, 
-                 sync_status = 0, 
+             SET status = ?,
+                 observacao = ?,
+                 data_cadastro = ?,
+                 arquivo_app = ?,
+                 sync_status = 0,
+                 sync_attempts = 0,
+                 sync_error = NULL,
                  updated_at = ?
            WHERE id = ?
         `,
@@ -248,7 +252,27 @@ export default function EditChecklistRealizadosAccordion() {
         ]
       );
 
-      showToast('✅ Item atualizado (offline).', 'success');
+      // Tambem reativa o servico pai, caso esteja abandonado/em erro,
+      // para que a alteracao seja transmitida ao MySQL no proximo sync.
+      await executeSql(
+        `
+          UPDATE veiculo_checklist_itens_servicos
+             SET sync_status = CASE
+                   WHEN sync_status IN (3, 99) THEN 0
+                   WHEN sync_status = 1 THEN 0
+                   ELSE sync_status
+                 END,
+                 sync_attempts = 0,
+                 sync_error = NULL,
+                 updated_at = ?
+           WHERE id_local = (
+             SELECT id_checklist_realizado FROM veiculo_checklist_itens_realizados WHERE id = ?
+           );
+        `,
+        [agora, itemId]
+      );
+
+      showToast('Item atualizado. Sera reenviado no proximo sync.', 'success');
     } catch (err) {
       console.error('Erro ao salvar item (offline):', err);
       showToast(`❌ Erro ao salvar: ${err.message}`, 'error');
@@ -339,7 +363,7 @@ export default function EditChecklistRealizadosAccordion() {
         </Card>
 
         {items.length > 0 && (
-          <Btn bg="#4caf50" onPress={() => { showToast('✔️ Todas as alterações são locais. Sincronize quando estiver ONLINE.', 'info'); navigation.goBack(); }}>
+          <Btn bg="#4caf50" onPress={() => { showToast('Alteracoes salvas no dispositivo. Sincronize quando tiver internet.', 'info'); navigation.goBack(); }}>
             <BtnText>Concluir</BtnText>
           </Btn>
         )}
