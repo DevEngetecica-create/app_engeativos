@@ -1,0 +1,336 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350" font-family="'Segoe UI', Roboto, system-ui, sans-serif">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="18%" r="85%">
+      <stop offset="0%" stop-color="#25304a"/>
+      <stop offset="100%" stop-color="#141a29"/>
+    </radialGradient>
+    <linearGradient id="phoneEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c2438"/>
+      <stop offset="100%" stop-color="#0b0e16"/>
+    </linearGradient>
+    <linearGradient id="accentOrange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff7639"/>
+      <stop offset="100%" stop-color="#e54f0c"/>
+    </linearGradient>
+    <linearGradient id="accentBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3367ff"/>
+      <stop offset="100%" stop-color="#1f51fe"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff7639" stop-opacity="0.0"/>
+      <stop offset="50%" stop-color="#ff7639" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#ff7639" stop-opacity="0.0"/>
+    </linearGradient>
+    <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <circle cx="200" cy="280" r="320" fill="#1f51fe" opacity="0.10"/>
+  <circle cx="880" cy="900" r="380" fill="#ff7639" opacity="0.10"/>
+  <circle cx="540" cy="1200" r="280" fill="#22b07d" opacity="0.06"/>
+
+  <!-- ============ TOPO ============ -->
+  <g transform="translate(540, 115)">
+    <text text-anchor="middle" font-size="50" font-weight="900" fill="#fff" letter-spacing="7">
+      ENGE<tspan fill="#ff7639">ATIVOS</tspan>
+    </text>
+    <text text-anchor="middle" y="34" font-size="14" fill="#a3aec5" letter-spacing="5">SISTEMA DE GESTÃO DE ATIVOS</text>
+  </g>
+
+  <rect x="120" y="220" width="840" height="3" fill="url(#ribbon)"/>
+
+  <g transform="translate(540, 275)">
+    <text text-anchor="middle" font-size="52" font-weight="800" fill="#fff">Tutoriais visuais</text>
+    <text text-anchor="middle" y="62" font-size="52" font-weight="800" fill="#ff7639">dentro do próprio app</text>
+    <text text-anchor="middle" y="108" font-size="20" fill="#b9c2d6">Sem áudio · Sem vídeo gravado · 100% HTML, CSS e JavaScript</text>
+  </g>
+
+  <!-- ============ 4 PHONES ============ -->
+
+  <!-- ========== PHONE 1: LOGIN (fiel ao tutorial real) ========== -->
+  <g transform="translate(70, 460)">
+    <rect x="12" y="20" width="220" height="540" rx="34" fill="#000" opacity="0.5" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="220" height="540" rx="32" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="208" height="528" rx="26" fill="#fff"/>
+    <rect x="84" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <!-- Ícone de relógio laranja (espelha o tutorial) -->
+    <g transform="translate(110, 56)" stroke="#ff7639" stroke-width="1.8" fill="none" stroke-linecap="round">
+      <circle cx="0" cy="0" r="14"/>
+      <path d="M 0 -7 V 0 L 4 3"/>
+    </g>
+
+    <!-- Logo ENGEATIVOS -->
+    <text x="110" y="100" text-anchor="middle" font-size="18" font-weight="800" fill="#222" letter-spacing="1.5">ENGE<tspan fill="#ff7639">ATIVOS</tspan></text>
+    <text x="110" y="113" text-anchor="middle" font-size="6.5" fill="#666" letter-spacing="2">SISTEMA DE GESTÃO DE ATIVOS</text>
+
+    <!-- Campo E-mail -->
+    <rect x="20" y="132" width="180" height="32" rx="7" fill="#fff" stroke="#e0e0e0"/>
+    <text x="30" y="153" font-size="10" fill="#222">motorista@engeativos.com.br</text>
+
+    <!-- Campo Senha -->
+    <rect x="20" y="172" width="180" height="32" rx="7" fill="#fff" stroke="#e0e0e0"/>
+    <text x="30" y="193" font-size="10" font-weight="700" fill="#222">••••••••</text>
+    <!-- ícone olho -->
+    <g transform="translate(184, 188)" fill="none" stroke="#666" stroke-width="1.5">
+      <path d="M -8 0 a 9 5 0 0 1 16 0 a 9 5 0 0 1 -16 0 z"/>
+      <circle cx="0" cy="0" r="2.2"/>
+    </g>
+
+    <!-- Banner verde "Sinal bom, recomendado login ONLINE" -->
+    <g transform="translate(110, 218)">
+      <text text-anchor="middle" font-size="9" font-weight="700" fill="#00b67c">✅ Sinal bom, recomendado login</text>
+      <text text-anchor="middle" y="12" font-size="9" font-weight="700" fill="#00b67c">ONLINE</text>
+      <text text-anchor="middle" y="25" font-size="8" fill="#666">Intensidade: 99%</text>
+    </g>
+
+    <!-- Checkbox "Acessar sem internet (Off-line)" -->
+    <g transform="translate(20, 260)">
+      <rect x="0" y="0" width="14" height="14" rx="3" fill="#fff" stroke="#1f51fe" stroke-width="1.8"/>
+      <text x="20" y="11" font-size="10" fill="#333">Acessar sem internet (Off-line)</text>
+    </g>
+
+    <!-- Botão "Acessar (ONLINE)" azul -->
+    <rect x="20" y="288" width="180" height="36" rx="7" fill="url(#accentBlue)"/>
+    <text x="110" y="311" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">Acessar (ONLINE)</text>
+
+    <!-- Botão "Login Biométrico" laranja (com halo pulse simulado) -->
+    <rect x="14" y="338" width="192" height="40" rx="7" fill="none" stroke="#ff7639" stroke-width="1.5" opacity="0.35"/>
+    <rect x="20" y="342" width="180" height="34" rx="7" fill="url(#accentOrange)"/>
+    <g transform="translate(75, 359)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round">
+      <path d="M 0 -2 v 3"/>
+      <path d="M -5 -4 a 5 5 0 0 1 10 0"/>
+      <path d="M -7.5 -2 a 7.5 7.5 0 0 1 15 0"/>
+      <path d="M -10 4 a 10 10 0 0 1 20 0"/>
+    </g>
+    <text x="124" y="363" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">Login Biométrico</text>
+
+    <!-- Footer ENGETECNICA -->
+    <g transform="translate(110, 478)">
+      <text text-anchor="middle" font-size="11" font-weight="800" fill="#222" letter-spacing="1.5">ENGE<tspan fill="#ff7639">TECNICA</tspan></text>
+      <text text-anchor="middle" y="13" font-size="8" fill="#666">www.engetecnica.com.br</text>
+    </g>
+
+    <text x="110" y="585" text-anchor="middle" font-size="12" font-weight="800" fill="#3367ff" letter-spacing="2">LOGIN</text>
+  </g>
+
+  <!-- ========== PHONE 2: HOME ========== -->
+  <g transform="translate(310, 440)">
+    <rect x="12" y="20" width="220" height="540" rx="34" fill="#000" opacity="0.55" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="220" height="540" rx="32" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="208" height="528" rx="26" fill="#f5f6f8"/>
+    <rect x="84" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <rect x="6" y="22" width="208" height="22" fill="#caf3a8"/>
+    <text x="14" y="37" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <rect x="14" y="58" width="192" height="84" rx="8" fill="#fff" stroke="#eee"/>
+    <text x="22" y="76" font-size="9" fill="#666">Olá,</text>
+    <text x="22" y="93" font-size="13" font-weight="800" fill="#1e293b">SAMUEL F. DE MELO</text>
+    <rect x="22" y="105" width="62" height="18" rx="4" fill="#007AFF"/>
+    <text x="53" y="117" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">Engeativos</text>
+    <rect x="92" y="105" width="58" height="18" rx="4" fill="#f3faf5" stroke="#cfeed6"/>
+    <text x="121" y="117" text-anchor="middle" font-size="9" font-weight="800" fill="#22b07d">📖 Tutorial</text>
+
+    <g transform="translate(14, 152)">
+      <rect x="0" y="0" width="92" height="74" rx="8" fill="#fff" stroke="#eee"/>
+      <circle cx="46" cy="28" r="14" fill="#007AFF" opacity="0.18"/>
+      <text x="46" y="34" text-anchor="middle" font-size="14" fill="#007AFF">👤</text>
+      <text x="46" y="60" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Perfil</text>
+
+      <rect x="100" y="0" width="92" height="74" rx="8" fill="#fff" stroke="#eee"/>
+      <circle cx="146" cy="28" r="14" fill="#ff3807" opacity="0.18"/>
+      <text x="146" y="34" text-anchor="middle" font-size="14" fill="#ff3807">🔄</text>
+      <text x="146" y="60" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Sincronização</text>
+
+      <rect x="0" y="84" width="92" height="74" rx="8" fill="#fff" stroke="#eee"/>
+      <circle cx="46" cy="112" r="14" fill="#FF9F0A" opacity="0.22"/>
+      <text x="46" y="118" text-anchor="middle" font-size="14" fill="#FF9F0A">🚚</text>
+      <text x="46" y="144" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Veículos</text>
+
+      <rect x="100" y="84" width="92" height="74" rx="8" fill="#fff" stroke="#eee"/>
+      <circle cx="146" cy="112" r="14" fill="#0A84FF" opacity="0.18"/>
+      <text x="146" y="118" text-anchor="middle" font-size="14" fill="#0A84FF">🛡️</text>
+      <text x="146" y="144" text-anchor="middle" font-size="9" font-weight="700" fill="#222">SMS</text>
+
+      <rect x="50" y="168" width="92" height="74" rx="8" fill="#fff" stroke="#eee"/>
+      <circle cx="96" cy="196" r="14" fill="#5AC8FA" opacity="0.22"/>
+      <text x="96" y="202" text-anchor="middle" font-size="14" fill="#5AC8FA">🤝</text>
+      <text x="96" y="228" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Obras</text>
+    </g>
+
+    <text x="110" y="585" text-anchor="middle" font-size="12" font-weight="800" fill="#22b07d" letter-spacing="2">HOME</text>
+  </g>
+
+  <!-- ========== PHONE 3: SINCRONIZAÇÃO ========== -->
+  <g transform="translate(550, 440)">
+    <rect x="12" y="20" width="220" height="540" rx="34" fill="#000" opacity="0.55" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="220" height="540" rx="32" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="208" height="528" rx="26" fill="#f5f6f8"/>
+    <rect x="84" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <rect x="6" y="22" width="208" height="22" fill="#caf3a8"/>
+    <text x="14" y="37" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <rect x="6" y="44" width="208" height="40" fill="#fff"/>
+    <text x="14" y="60" font-size="11" font-weight="800" fill="#222">Gerenciador de Sincronização</text>
+    <text x="14" y="74" font-size="8" fill="#666">Baixe ou envie módulo por módulo</text>
+    <circle cx="196" cy="64" r="11" fill="#fff5f2" stroke="#f1c1ba"/>
+    <text x="196" y="68" text-anchor="middle" font-size="10" fill="#c0392b">🗑</text>
+
+    <rect x="14" y="92" width="192" height="38" rx="6" fill="#fff" stroke="#eee"/>
+    <rect x="14" y="92" width="4" height="38" fill="#22b07d"/>
+    <circle cx="28" cy="111" r="4" fill="#22b07d"/>
+    <text x="38" y="108" font-size="9" font-weight="800" fill="#0a7a52">Sinal bom — pronto</text>
+    <text x="38" y="120" font-size="7" fill="#666">Wi-Fi</text>
+    <text x="200" y="116" text-anchor="end" font-size="13" font-weight="800" fill="#0a7a52">99%</text>
+
+    <rect x="14" y="136" width="192" height="28" rx="6" fill="#fff" stroke="#eee"/>
+    <text x="22" y="155" font-size="9" font-weight="600" fill="#333">☁ Registros pendentes</text>
+    <rect x="170" y="143" width="28" height="14" rx="7" fill="url(#accentOrange)"/>
+    <text x="184" y="153" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
+
+    <rect x="14" y="172" width="92" height="56" rx="9" fill="url(#accentOrange)"/>
+    <text x="60" y="198" text-anchor="middle" font-size="14" fill="#fff">⬆</text>
+    <text x="60" y="216" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">Enviar</text>
+
+    <rect x="114" y="172" width="92" height="56" rx="9" fill="url(#accentBlue)"/>
+    <text x="160" y="198" text-anchor="middle" font-size="14" fill="#fff">⬇</text>
+    <text x="160" y="216" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">Baixar</text>
+
+    <text x="14" y="244" font-size="9" font-weight="800" fill="#0057a3">📤 Tabelas de Upload</text>
+    <text x="206" y="244" text-anchor="end" font-size="7.5" font-weight="800" fill="#FF7639">↑ ENVIANDO</text>
+
+    <g transform="translate(14, 252)">
+      <rect x="0" y="0" width="192" height="32" rx="6" fill="#f3f7ff" stroke="#cfe0ff"/>
+      <circle cx="10" cy="16" r="4" fill="#FF7639"/>
+      <text x="22" y="13" font-size="9" font-weight="700" fill="#222">Diário de Bordo</text>
+      <text x="22" y="23" font-size="7" fill="#666">↑ Enviando...</text>
+      <text x="180" y="20" font-size="11" fill="#FF7639">☁↑</text>
+      <rect x="105" y="20" width="65" height="3" rx="1.5" fill="#eef0f3"/>
+      <rect x="105" y="20" width="38" height="3" rx="1.5" fill="#FF7639"/>
+    </g>
+
+    <g transform="translate(14, 290)">
+      <rect x="0" y="0" width="192" height="28" rx="6" fill="#f3faf5" stroke="#cfeed6"/>
+      <circle cx="10" cy="14" r="4" fill="#22b07d"/>
+      <text x="22" y="12" font-size="9" font-weight="700" fill="#222">Abastecimentos</text>
+      <text x="22" y="22" font-size="7" font-weight="700" fill="#0a7a52">✓ Sincronizado</text>
+      <text x="180" y="18" font-size="11" fill="#FF7639">☁↑</text>
+    </g>
+
+    <g transform="translate(14, 322)">
+      <rect x="0" y="0" width="192" height="28" rx="6" fill="#fff" stroke="#eee"/>
+      <circle cx="10" cy="14" r="4" fill="#9E9E9E"/>
+      <text x="22" y="12" font-size="9" font-weight="700" fill="#222">Checklists</text>
+      <text x="22" y="22" font-size="7" font-style="italic" fill="#666">Aguardando...</text>
+      <text x="180" y="18" font-size="11" fill="#FF7639">☁↑</text>
+    </g>
+
+    <text x="14" y="366" font-size="9" font-weight="800" fill="#0057a3">📥 Tabelas de Download</text>
+
+    <g transform="translate(14, 374)">
+      <rect x="0" y="0" width="192" height="28" rx="6" fill="#fff" stroke="#eee"/>
+      <circle cx="10" cy="14" r="4" fill="#9E9E9E"/>
+      <text x="22" y="12" font-size="9" font-weight="700" fill="#222">Veículos</text>
+      <text x="22" y="22" font-size="7" font-style="italic" fill="#666">Nunca sincronizado</text>
+      <text x="180" y="18" font-size="11" fill="#1f51fe">☁↓</text>
+    </g>
+
+    <g transform="translate(14, 406)">
+      <rect x="0" y="0" width="192" height="28" rx="6" fill="#fff" stroke="#eee"/>
+      <circle cx="10" cy="14" r="4" fill="#9E9E9E"/>
+      <text x="22" y="12" font-size="9" font-weight="700" fill="#222">Obras</text>
+      <text x="22" y="22" font-size="7" font-style="italic" fill="#666">Nunca sincronizado</text>
+      <text x="180" y="18" font-size="11" fill="#1f51fe">☁↓</text>
+    </g>
+
+    <text x="110" y="585" text-anchor="middle" font-size="12" font-weight="800" fill="#ff7639" letter-spacing="2">SINCRONIZAÇÃO</text>
+  </g>
+
+  <!-- ========== PHONE 4: TUTORIAL EM AÇÃO ========== -->
+  <g transform="translate(790, 460)">
+    <rect x="12" y="20" width="220" height="540" rx="34" fill="#000" opacity="0.5" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="220" height="540" rx="32" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="208" height="528" rx="26" fill="#f5f6f8"/>
+    <rect x="84" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <rect x="6" y="22" width="208" height="22" fill="#caf3a8"/>
+    <text x="14" y="37" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <rect x="6" y="44" width="208" height="32" fill="#fff"/>
+    <text x="110" y="64" text-anchor="middle" font-size="11" font-weight="800" fill="#222">📋 Checklist (Tutorial)</text>
+
+    <rect x="14" y="86" width="192" height="44" rx="7" fill="#fff" stroke="#22b07d" stroke-width="1.5"/>
+    <text x="22" y="106" font-size="10" font-weight="700" fill="#222">Faróis funcionando?</text>
+    <circle cx="180" cy="108" r="12" fill="#22b07d"/>
+    <text x="180" y="113" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">✓</text>
+    <text x="22" y="121" font-size="8" fill="#0a7a52">✓ Conforme</text>
+
+    <rect x="14" y="136" width="192" height="58" rx="7" fill="#fff5e6" stroke="#ff7639" stroke-width="2"/>
+    <text x="22" y="156" font-size="10" font-weight="700" fill="#222">Pneus calibrados?</text>
+    <rect x="22" y="166" width="42" height="20" rx="4" fill="#fff" stroke="#bbb"/>
+    <text x="43" y="180" text-anchor="middle" font-size="9" font-weight="700" fill="#555">SIM</text>
+    <rect x="70" y="166" width="42" height="20" rx="4" fill="#fff" stroke="#bbb"/>
+    <text x="91" y="180" text-anchor="middle" font-size="9" font-weight="700" fill="#555">NÃO</text>
+    <rect x="118" y="166" width="52" height="20" rx="4" fill="#ff7639"/>
+    <text x="144" y="180" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">📷 Foto</text>
+
+    <g transform="translate(146, 170) rotate(-15)">
+      <path d="M -3 -2 V -16 a 4 4 0 0 1 8 0 V -2 h 1 l 2 -8 a 3.5 3.5 0 0 1 7 1.5 L 13 0 v 8 a 12 12 0 0 1 -12 12 a 12 12 0 0 1 -11 -7 l -5 -10 a 3.5 3.5 0 0 1 5.5 -3.5 L -8 4 z"
+            fill="#fff" stroke="#222" stroke-width="1.2"/>
+    </g>
+    <circle cx="145" cy="175" r="15" fill="none" stroke="#ff7639" stroke-width="2.5" opacity="0.7"/>
+    <circle cx="145" cy="175" r="23" fill="none" stroke="#ff7639" stroke-width="1.5" opacity="0.35"/>
+
+    <rect x="14" y="202" width="192" height="36" rx="7" fill="#fff" stroke="#eee"/>
+    <text x="22" y="220" font-size="10" font-weight="700" fill="#222">Cinto de segurança?</text>
+    <circle cx="180" cy="220" r="8" fill="#eee"/>
+
+    <rect x="14" y="244" width="192" height="36" rx="7" fill="#fff" stroke="#eee"/>
+    <text x="22" y="262" font-size="10" font-weight="700" fill="#222">Freio de mão?</text>
+    <circle cx="180" cy="262" r="8" fill="#eee"/>
+
+    <rect x="14" y="294" width="192" height="46" rx="9" fill="#1f51fe"/>
+    <text x="22" y="312" font-size="8" font-weight="800" fill="#ffb066" letter-spacing="1.5">PASSO 4 / 7</text>
+    <text x="22" y="331" font-size="11" font-weight="800" fill="#fff">Tire foto do pneu</text>
+
+    <g transform="translate(80, 356)">
+      <circle cx="0" cy="0" r="3" fill="#ff7639"/>
+      <circle cx="10" cy="0" r="3" fill="#ff7639"/>
+      <circle cx="20" cy="0" r="3" fill="#ff7639"/>
+      <circle cx="30" cy="0" r="3" fill="#ff7639"/>
+      <circle cx="40" cy="0" r="2.5" fill="#fff" stroke="#999"/>
+      <circle cx="50" cy="0" r="2.5" fill="#fff" stroke="#999"/>
+      <circle cx="60" cy="0" r="2.5" fill="#fff" stroke="#999"/>
+    </g>
+
+    <rect x="60" y="376" width="100" height="22" rx="4" fill="#1f51fe"/>
+    <text x="110" y="391" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">▶ Repetir</text>
+
+    <text x="110" y="585" text-anchor="middle" font-size="12" font-weight="800" fill="#1f51fe" letter-spacing="2">TUTORIAL ANIMADO</text>
+  </g>
+
+  <!-- ============ RODAPÉ ============ -->
+  <g transform="translate(540, 1175)">
+    <text text-anchor="middle" font-size="26" font-weight="800" fill="#fff">
+      <tspan fill="#ff7639">6</tspan> fluxos
+      &#160;·&#160;
+      <tspan fill="#ff7639">45+</tspan> passos
+      &#160;·&#160;
+      <tspan fill="#ff7639">0</tspan> dependências
+    </text>
+  </g>
+
+  <g transform="translate(540, 1235)">
+    <rect x="-220" y="-30" width="440" height="50" rx="25" fill="#ff7639" opacity="0.12" stroke="#ff7639" stroke-width="1.5"/>
+    <text text-anchor="middle" y="3" font-size="20" font-weight="800" fill="#fff">📲 sga-engeativos.com.br/tutorial</text>
+  </g>
+
+  <text x="540" y="1315" text-anchor="middle" font-size="13" fill="#7a85a0" letter-spacing="3">
+    🏗️  ENGETECNICA  ·  ENGEATIVOS
+  </text>
+</svg>

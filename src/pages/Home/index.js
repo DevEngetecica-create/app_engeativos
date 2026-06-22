@@ -12,6 +12,8 @@ import {
   ToastAndroid,
   Platform,
   Alert,
+  RefreshControl,
+  Linking,
 } from "react-native";
 import styled from "styled-components/native";
 
@@ -20,6 +22,7 @@ import styles from "./home.styles";
 
 import ErrorAlert from "../../components/ErrorAlert";
 import Loading from "../../components/Loading";
+import AutoSyncModal from "../../components/Sync/AutoSyncModal";
 import api from "../../config/api";
 import { useAuth } from "../../contexts/auth";
 import { db } from "../../config/database/database";
@@ -42,13 +45,17 @@ const showToast = (msg) => {
 
 export default function Home() {
   const navigation = useNavigation();
-  const { user, connectionMode } = useAuth(); // ✅ pega usuário + modo global
+  const { user, connectionMode, id_nivel, modulosPermitidos, setAuthData, authData } = useAuth(); // Pega também setAuthData e authData
   const modoOnline = connectionMode === "online";
 
   const [errors, setErrors] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [funcionario, setFuncionario] = useState(null);
   const [nivel_acesso, setNivelAcesso] = useState(null);
+
+  // O aplicativo desativa a inicialização automática do modal de Sincronização. O usuário utilizará o botão de Sincronização manualmente.
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   // 🔹 Buscar dados via SQLite
   const getOfflineData = useCallback(() => {
@@ -82,7 +89,13 @@ export default function Home() {
         try {
           const { data } = await api.get(`users/show/${user?.id}`);
           dadosFunc = data?.dados_func ?? null;
-          //setNivelAcesso(data?.nivel_acesso?.id_nivel ?? null);
+          const nivelAcessoUpdate = data?.nivel_acesso?.id_nivel ?? null;
+          setNivelAcesso(nivelAcessoUpdate);
+
+          // 🚨 Atualiza o Contexto global para que telas como Veiculos saibam o nível de acesso
+          if (nivelAcessoUpdate) {
+            setAuthData(prev => ({ ...prev, id_nivel: nivelAcessoUpdate }));
+          }
 
           if (dadosFunc) {
             // cache local atualizado
@@ -103,15 +116,20 @@ export default function Home() {
             showToast("⚠️ Nenhum dado retornado do servidor");
           }
         } catch (err) {
-          console.warn(
-            `⚠️ Falha online → fallback offline: ${err?.message ?? "Erro desconhecido"}`
-          );
           showToast("📴 Modo offline — usando dados locais");
-          dadosFunc = await getOfflineData().catch(() => null);
+          if (authData?.dados_func) {
+            dadosFunc = authData.dados_func;
+          } else {
+            dadosFunc = await getOfflineData().catch(() => null);
+          }
         }
       } else {
         showToast("📴 Modo offline — usando dados locais");
-        dadosFunc = await getOfflineData().catch(() => null);
+        if (authData?.dados_func) {
+          dadosFunc = authData.dados_func;
+        } else {
+          dadosFunc = await getOfflineData().catch(() => null);
+        }
       }
 
       setFuncionario(dadosFunc);
@@ -130,25 +148,87 @@ export default function Home() {
     }, [user?.id, modoOnline])
   );
 
-  const getData = () => [
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (user?.id) {
+      await getFuncionario();
+      
+      // Atualiza também os módulos permitidos!
+      if (modoOnline) {
+        try {
+          const resModulos = await api.get("modulos-permitidos", { __silent: true });
+          const novosModulos = resModulos.data || [];
+          setAuthData(prev => ({
+            ...prev,
+            modulosPermitidos: novosModulos
+          }));
+        } catch (err) {
+          console.warn("Falha ao atualizar permissões no refresh:", err.message);
+        }
+      }
+    }
+    setRefreshing(false);
+  }, [user?.id, modoOnline]);
 
-    { id: "1", label: "Perfil", icon: "user", color: "#007AFF", screen: "Perfil" },
+  const getData = () => {
+    // Botões base: Sempre visíveis para todos, pois são nativos do aplicativo
+    const baseItens = [
+      { id: "1", label: "Perfil", icon: "user", color: "#007AFF", screen: "Perfil" },
+      { id: "2", label: "Sincronização", icon: "refresh", color: "#ff3807ff", screen: "Upload" }
+    ];
 
-    { id: "2", label: "Sincronização", icon: "refresh", color: "#ff3807ff", screen: "Upload" },
+    let customData = [...baseItens];
 
-    { id: "5", label: "Veículos da Frota", icon: "truck", color: "#FF9F0A", screen: "Veiculos" },
+    // O dicionário mapeia a "url_amigavel" ou "titulo" vindo do backend para a respectiva Tela (Screen) no App
+    const MAPA_MODULOS = {
+      "veiculo": { id: "5", label: "Veículos da Frota", icon: "truck", color: "#FF9F0A", screen: "Veiculos" },
+      "ativo": { id: "5", label: "Veículos da Frota", icon: "truck", color: "#FF9F0A", screen: "Veiculos" }, // Fallback para título
+      "sms": { id: "3", label: "Segurança do Trabalho", icon: "shield", color: "#0A84FF", screen: "SMS" },
+      "meio": { id: "4", label: "Meio Ambiente", icon: "tree", color: "#34C759", screen: "Construction" },
+      "alugad": { id: "6", label: "Veículos Alugados", icon: "car", color: "#ff1852ff", screen: "Construction" },
+      "qualidade": { id: "7", label: "Qualidade", icon: "bar-chart-o", color: "#5856D6", screen: "Construction" },
+      "obra": { id: "8", label: "Obras", icon: "handshake-o", color: "#5AC8FA", screen: "Construction" }
+    };
 
-    { id: "3", label: "Segurança do Trabalho", icon: "shield", color: "#0A84FF", screen: "SMS" },
+    // O aplicativo itera sobre as permissões armazenadas offline e renderiza apenas o que foi autorizado
+    if (Array.isArray(modulosPermitidos)) {
+      const removerAcentos = (str) => {
+        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+      };
 
-    { id: "4", label: "Meio Ambiente", icon: "tree", color: "#34C759", screen: "Construction" },
+      const verificarEAdicionar = (item) => {
+        const urlAmigavel = removerAcentos(item.url_amigavel?.toLowerCase() || "");
+        const titulo = removerAcentos(item.titulo?.toLowerCase() || "");
+        
+        // Se a url amigavel ou o título der match com as chaves do nosso mapa, ele exibe o botão
+        const itemMapeado = Object.entries(MAPA_MODULOS).find(
+          ([key, value]) => urlAmigavel.includes(key) || titulo.includes(key)
+        );
 
-    { id: "6", label: "Veículos Alugados", icon: "car", color: "#ff1852ff", screen: "Construction" },
+        if (itemMapeado) {
+          // Garante que não duplique botões
+          const jaExiste = customData.find(d => d.id === itemMapeado[1].id);
+          if (!jaExiste) {
+             customData.push(itemMapeado[1]);
+          }
+        }
+      };
 
-    { id: "7", label: "Qualidade", icon: "bar-chart-o", color: "#5856D6", screen: "Construction" },
+      modulosPermitidos.forEach(modulo => {
+        // Verifica o módulo pai
+        verificarEAdicionar(modulo);
+        
+        // Verifica também os submódulos (onde normalmente ficam "Veículos", "Checklist", etc)
+        if (Array.isArray(modulo.submodulos)) {
+          modulo.submodulos.forEach(submodulo => {
+            verificarEAdicionar(submodulo);
+          });
+        }
+      });
+    }
 
-    { id: "8", label: "Obras", icon: "handshake-o", color: "#5AC8FA", screen: "Construction" },
-
-  ];
+    return customData;
+  };
 
 
   return (
@@ -164,16 +244,50 @@ export default function Home() {
         resizeMode="cover"
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#007AFF']} />
+        }
+      >
         <Container>
           <ErrorAlert errors={errors} />
 
           <Card>
             <Text style={styles.greeting}>Olá,</Text>
             <Name>{funcionario?.nome || "Usuário offline"}</Name>
-            <Role online={modoOnline}>
-              {modoOnline ? "Engeativos" : "Modo Offline"}
-            </Role>
+            <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+              <Role online={modoOnline}>
+                {modoOnline ? "Engeativos" : "Modo Offline"}
+              </Role>
+              <TouchableOpacity
+                style={localStyles.tutorialBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={async () => {
+                  if (!modoOnline) {
+                    Alert.alert(
+                      "Tutorial Indisponível",
+                      "Os tutoriais ficam no servidor. Conecte-se à internet para acessá-los."
+                    );
+                    return;
+                  }
+                  const url = "https://sga-engeativos.com.br/tutorial";
+                  try {
+                    const supported = await Linking.canOpenURL(url);
+                    if (supported) {
+                      await Linking.openURL(url);
+                    } else {
+                      showToast("Não foi possível abrir o navegador");
+                    }
+                  } catch (e) {
+                    showToast("Erro ao abrir tutorial");
+                  }
+                }}
+              >
+                <FontAwesome name="book" size={13} color="#22b07d" />
+                <Text style={localStyles.tutorialBtnText}>Como usar o aplicativo</Text>
+              </TouchableOpacity>
+            </View>
           </Card>
 
           <View style={styles.grid}>
@@ -181,7 +295,21 @@ export default function Home() {
               <TouchableOpacity
                 key={item.id}
                 style={styles.item}
-                onPress={() => navigation.navigate(item.screen)}
+                onPress={() => {
+                  // O aplicativo intercepta o clique do botão de Sincronização para verificar o modo da conexão
+                  if (item.screen === "Upload") {
+                    if (!modoOnline) {
+                      Alert.alert(
+                        "Sincronização Indisponível",
+                        "A sincronização só é possível em modo on-line e conectado à internet."
+                      );
+                    } else {
+                      navigation.navigate(item.screen);
+                    }
+                  } else {
+                    navigation.navigate(item.screen);
+                  }
+                }}
               >
                 <IconWrapper style={{ backgroundColor: item.color + 25 }}>
                   <FontAwesome name={item.icon} size={25} color={item.color} />
@@ -194,6 +322,15 @@ export default function Home() {
           {loading && <Loading />}
         </Container>
       </ScrollView>
+
+      {/* MODAL DE SINCRONIZAÇÃO AUTOMÁTICA NO LOGIN */}
+      {modoOnline && (
+        <AutoSyncModal 
+          visible={showSyncModal} 
+          onClose={() => setShowSyncModal(false)} 
+          autoStart={true} 
+        />
+      )}
     </View>
   );
 }
@@ -241,4 +378,27 @@ const IconWrapper = styled.View`
   align-items: center;
   margin-bottom: 8px;
 `;
+
+// Estilos locais usados apenas no botão Tutorial (mantemos junto da página
+// para não inflar o home.styles.js partilhado)
+const localStyles = StyleSheet.create({
+  tutorialBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginLeft: 60,
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#cfeed6",
+    backgroundColor: "#f3faf5",
+  },
+  tutorialBtnText: {
+    color: "#22b07d",
+    fontWeight: "700",
+    fontSize: 12.5,
+  },
+});
 
