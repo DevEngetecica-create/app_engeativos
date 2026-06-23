@@ -36,6 +36,24 @@ yarn-error.*
 .DS_Store
 Thumbs.db
 
+# --- IDE / EDITOR ---
+.idea/
+.vscode/
+*.swp
+
+# --- CLAUDE CODE / TOOLING LOCAL ---
+.claude/
+
+# --- SCRATCH / DUMPS / BACKUPS LOCAIS (nao commitar) ---
+scratch.js
+fix_uuid.js
+update_create.js
+update_edit.js
+temp.json
+response.json
+veiculos_response.json
+assets.zip
+
 # --- CERTIFICADOS / CHAVES ---
 *.pem
 
