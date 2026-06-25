@@ -9,7 +9,7 @@
 
 ## Resumo executivo (3 linhas)
 
-A equipe operacional está se confundindo com a obrigação de fazer **2 checklists por dia** (abertura na chegada + encerramento na saída). Identifiquei a causa e proponho **3 mudanças complementares** — 1 imediata sem custo, 1 no app e 1 impressa — que juntas eliminam a confusão. Custo total estimado: **< 8h de desenvolvimento + 1 ordem de impressão**.
+A equipe operacional está se confundindo com a obrigação de fazer **2 checklists por dia** (abertura na chegada + encerramento na saída). Identifiquei a causa e proponho **4 mudanças complementares** — 1 imediata sem custo, 1 no app, 1 impressa e 1 vídeo curto pelo WhatsApp — que juntas eliminam a confusão. Custo total estimado: **< 8h de desenvolvimento + 1 ordem de impressão + ~3h do encarregado pra gravar o vídeo**.
 
 ---
 
@@ -36,7 +36,7 @@ Identifiquei 3 causas:
 
 ---
 
-## Proposta — 3 camadas de defesa
+## Proposta — 4 camadas de defesa
 
 ### 🟢 Camada 1: Refazer o tutorial (anexo `01-tutorial-novo.svg`)
 
@@ -95,12 +95,50 @@ O motorista olha pro painel toda vez que entra no veículo. **Lembrete físico q
 
 ---
 
+### 🟠 Camada 4: Vídeo de treinamento — 75s no WhatsApp (anexo `04-storyboard-video.svg` + `04-roteiro-video.md`)
+
+**Custo:** R$ 0 monetário · ~3h do encarregado pra gravar + editar · **Risco:** Zero · **Status:** Aguarda aprovação + voluntário pra gravar
+
+Vídeo curto e direto, gravado pelo **encarregado da frota** (ou motorista mais respeitado), distribuído pelo **WhatsApp do grupo** — onde a equipe operacional já vive.
+
+**Por que vídeo é eficaz para este público específico:**
+
+- ✅ **Não exige leitura** — voz + imagem direta (crítico para baixa alfabetização)
+- ✅ **Cara humana = confiança** — o cérebro confia em "alguém da gente" mostrando, não em animação
+- ✅ **WhatsApp é canal natural** — chega no grupo, todo mundo assiste; link de tutorial ninguém clica
+- ✅ **Repetível sob demanda** — "vê o vídeo de novo" funciona
+
+**Cuidados não negociáveis:**
+
+1. **Máximo 75-90s** — mais que isso, ninguém assiste até o fim
+2. **NÃO usar locutor profissional** — autenticidade > polish; alguém que a equipe reconhece
+3. **Mostrar a tela do app real**, não mockup
+4. **Legendas obrigatórias** — muita gente assiste no mudo
+
+**Estrutura do vídeo (8 cenas, 75s):**
+
+| Tempo | Cena | Mensagem-chave |
+|---|---|---|
+| 0:00–0:08 | Encarregado fala direto pra câmera | "Todo dia, **DOIS checklists**" |
+| 0:08–0:12 | Transição: mão desbloqueando celular | (silêncio, som ambiente) |
+| 0:12–0:25 | Tela do app: ABRIR turno | "Cheguei. Aperto **ABRIR**." |
+| 0:25–0:30 | Pôr-do-sol / relógio passando | (transição visual) |
+| 0:30–0:36 | Banner de pendência no app | "Vou pra casa." |
+| 0:36–0:48 | Tela do app: ENCERRAR turno | "Aperto **ENCERRAR**." |
+| 0:48–1:00 | Encarregado sério no rosto | **"Se esquecer, sua hora NÃO conta."** |
+| 1:00–1:15 | Sorri, fecha | "DOIS por dia. Tamo junto!" |
+
+**Distribuição:** WhatsApp do grupo (canal primário) · YouTube unlisted (link no portal) · QR Code no cartão A5 apontando pro vídeo.
+
+---
+
 ## Cronograma sugerido
 
 | Semana | Ação | Responsável | Custo |
 |---|---|---|---|
 | 1 | Aprovação da proposta | Gerente de Frota | — |
 | 1 | Refazer tutorial (Camada 1) | TI (Samuel) | ~4h dev |
+| 1 | **Gravar e postar vídeo no WhatsApp (Camada 4)** | **Encarregado / TI** | **~3h** |
 | 2 | Implementar mudanças no app (Camada 2) | TI (Samuel) | ~3 dias dev |
 | 2 | Imprimir cartões A5 plastificados (Camada 3) | Gerente / Gráfica | R$ 5 × N veículos |
 | 3 | Lançar nova versão do app | TI + Frota | — |
@@ -126,6 +164,7 @@ Por favor, marque com **OK / RECUSA / AJUSTAR** cada item:
 - [ ] **Camada 1** (Refazer tutorial) — sem custo, posso fazer essa semana
 - [ ] **Camada 2** (Mudanças no app) — ~3 dias de desenvolvimento, aguarda OK
 - [ ] **Camada 3** (Cartão A5 impresso) — ~R$ 5/veículo, aguarda OK + ordem de impressão
+- [ ] **Camada 4** (Vídeo de treinamento WhatsApp) — R$ 0, ~3h do encarregado, aguarda voluntário
 - [ ] **KPI** (% turnos encerrados/dia) — dashboard simples no Engeativos web
 
 ---
@@ -135,6 +174,8 @@ Por favor, marque com **OK / RECUSA / AJUSTAR** cada item:
 1. **`01-tutorial-novo.svg`** — Mockup das 4 telas-chave do novo tutorial
 2. **`02-app-redesign.svg`** — Comparativo ANTES x DEPOIS do app
 3. **`03-cartao-a5.svg`** — Cartão pronto pra impressão (A5 plastificado)
+4. **`04-storyboard-video.svg`** — Storyboard das 8 cenas-chave do vídeo de 75s
+5. **`04-roteiro-video.md`** — Roteiro linha-a-linha + checklist pré-gravação + dicas de edição (CapCut)
 
 > 💡 **Como abrir os SVGs**: arrasta o arquivo pra qualquer navegador (Chrome, Edge, Firefox). Ou se preferir PNG, posso converter — me avisa.
 

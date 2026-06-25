@@ -41,6 +41,7 @@ async function main() {
   await svgToPng(path.join(DIR, "01-tutorial-novo.svg"), path.join(DIR, "01-tutorial-novo.png"), 1620);
   await svgToPng(path.join(DIR, "02-app-redesign.svg"), path.join(DIR, "02-app-redesign.png"), 1800);
   await svgToPng(path.join(DIR, "03-cartao-a5.svg"), path.join(DIR, "03-cartao-a5.png"), 1860);
+  await svgToPng(path.join(DIR, "04-storyboard-video.svg"), path.join(DIR, "04-storyboard-video.png"), 2100);
 
   console.log("[2/3] Gerando PowerPoint...");
   const pres = new pptxgen();
@@ -67,14 +68,13 @@ async function main() {
       fill: { color: COLORS.blue, transparency: 80 }, line: { type: "none" }
     });
 
-    // Marca topo
-    s.addText("ENGE", {
-      x: 0.7, y: 0.5, w: 3, h: 0.5,
-      fontSize: 22, bold: true, fontFace: FONT, color: COLORS.white, charSpacing: 8
-    });
-    s.addText("TECNICA", {
-      x: 1.65, y: 0.5, w: 3, h: 0.5,
-      fontSize: 22, bold: true, fontFace: FONT, color: COLORS.orange, charSpacing: 8
+    // Marca topo — rich text array para evitar sobreposição
+    s.addText([
+      { text: "ENGE", options: { color: COLORS.white } },
+      { text: "TECNICA", options: { color: COLORS.orange } },
+    ], {
+      x: 0.7, y: 0.5, w: 5, h: 0.5,
+      fontSize: 22, bold: true, fontFace: FONT, charSpacing: 8, margin: 0
     });
 
     s.addText("PROPOSTA · GERÊNCIA DE FROTA", {
@@ -614,7 +614,105 @@ async function main() {
   }
 
   // ============================================================
-  // SLIDE 8 — CRONOGRAMA
+  // SLIDE 8 — CAMADA 4 — VÍDEO DE TREINAMENTO
+  // ============================================================
+  {
+    const s = pres.addSlide();
+    s.background = { color: COLORS.bg };
+
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
+      x: 0.6, y: 0.5, w: 1.85, h: 0.4,
+      fill: { color: COLORS.orange }, line: { type: "none" }, rectRadius: 0.05
+    });
+    s.addText("CAMADA 4", {
+      x: 0.6, y: 0.5, w: 1.85, h: 0.4,
+      fontSize: 12, bold: true, fontFace: FONT, color: COLORS.white,
+      align: "center", valign: "middle", charSpacing: 5, margin: 0
+    });
+
+    s.addText("Vídeo de treinamento (WhatsApp)", {
+      x: 0.6, y: 1.0, w: 12, h: 0.65,
+      fontSize: 32, bold: true, fontFace: FONT_TITLE, color: COLORS.text, margin: 0
+    });
+    s.addText("75 segundos · gravado pelo encarregado · no canal que a equipe já usa.", {
+      x: 0.6, y: 1.65, w: 12, h: 0.4,
+      fontSize: 14, fontFace: FONT, color: COLORS.textMute, margin: 0
+    });
+
+    // Storyboard imagem (larga, horizontal)
+    s.addImage({
+      path: path.join(DIR, "04-storyboard-video.png"),
+      x: 0.6, y: 2.2, w: 8.0, h: 4.85,
+      sizing: { type: "contain", w: 8.0, h: 4.85 }
+    });
+
+    // Painel direito — por que funciona + cuidados
+    const rightX = 8.9;
+    s.addText("Por que funciona pra esse público:", {
+      x: rightX, y: 2.25, w: 3.8, h: 0.45,
+      fontSize: 15, bold: true, fontFace: FONT, color: COLORS.text, margin: 0
+    });
+
+    const razoes = [
+      { ic: "🗣", t: "Não exige leitura (voz + imagem)" },
+      { ic: "👥", t: "Cara humana = confiança" },
+      { ic: "💬", t: "WhatsApp é canal natural" },
+      { ic: "🔁", t: "Repetível sob demanda" },
+    ];
+    razoes.forEach((r, i) => {
+      const y = 2.8 + i * 0.55;
+      s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
+        x: rightX, y, w: 3.8, h: 0.48,
+        fill: { color: COLORS.white }, line: { color: COLORS.cardBorder, width: 1 },
+        rectRadius: 0.06
+      });
+      s.addText(r.ic, {
+        x: rightX + 0.1, y, w: 0.5, h: 0.48,
+        fontSize: 18, align: "center", valign: "middle", margin: 0
+      });
+      s.addText(r.t, {
+        x: rightX + 0.65, y, w: 3.1, h: 0.48,
+        fontSize: 12, fontFace: FONT, color: COLORS.text, valign: "middle", margin: 0
+      });
+    });
+
+    // Cuidados
+    s.addText("⚠️ Cuidados:", {
+      x: rightX, y: 5.1, w: 3.8, h: 0.35,
+      fontSize: 13, bold: true, fontFace: FONT, color: COLORS.orangeDark, margin: 0
+    });
+    s.addText([
+      { text: "Máximo 75-90 s · ", options: { breakLine: true } },
+      { text: "Sem locutor profissional · ", options: { breakLine: true } },
+      { text: "Tela real do app, não mockup · ", options: { breakLine: true } },
+      { text: "Legendas obrigatórias", options: {} },
+    ], {
+      x: rightX, y: 5.45, w: 3.8, h: 1.15,
+      fontSize: 11, fontFace: FONT, color: COLORS.text, margin: 0
+    });
+
+    // Box custo
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
+      x: rightX, y: 6.6, w: 3.8, h: 0.65,
+      fill: { color: COLORS.yellowBg }, line: { color: COLORS.orange, width: 1.5 },
+      rectRadius: 0.08
+    });
+    s.addText([
+      { text: "Custo: ", options: { fontSize: 12, bold: true, color: COLORS.orangeDark } },
+      { text: "R$ 0 · ~3 h encarregado", options: { fontSize: 12, color: COLORS.orangeDark, breakLine: true } },
+      { text: "Risco: ", options: { fontSize: 12, bold: true, color: COLORS.orangeDark } },
+      { text: "zero", options: { fontSize: 12, color: COLORS.orangeDark } },
+    ], { x: rightX + 0.15, y: 6.6, w: 3.6, h: 0.65, fontFace: FONT, valign: "middle", margin: 0 });
+
+    s.addNotes(
+      "Camada 4 é o vetor mais eficaz pra equipe leiga. O canal (WhatsApp) já existe. " +
+      "Roteiro completo + storyboard em arquivos separados. Posso ajudar a editar, " +
+      "mas a gravação é melhor com o encarregado — voz dele tem mais autoridade que voz da TI."
+    );
+  }
+
+  // ============================================================
+  // SLIDE 9 — CRONOGRAMA
   // ============================================================
   {
     const s = pres.addSlide();
@@ -638,19 +736,19 @@ async function main() {
       ],
       [
         { text: "1", options: { bold: true, align: "center", valign: "middle", color: COLORS.orange, fontSize: 18 } },
-        { text: "Aprovação da proposta + refazer tutorial (Camada 1)", options: { valign: "middle" } },
-        { text: "Gerente · TI", options: { valign: "middle" } },
-        { text: "~4 h dev", options: { align: "center", valign: "middle" } },
+        { text: "Aprovação + refazer tutorial (C1) + gravar vídeo WhatsApp (C4)", options: { valign: "middle" } },
+        { text: "Gerente · TI · Encarregado", options: { valign: "middle" } },
+        { text: "~4 h dev + ~3 h grav.", options: { align: "center", valign: "middle" } },
       ],
       [
         { text: "2", options: { bold: true, align: "center", valign: "middle", color: COLORS.orange, fontSize: 18 } },
-        { text: "Implementar mudanças no app (Camada 2) + imprimir cartões A5 (Camada 3)", options: { valign: "middle" } },
+        { text: "Implementar mudanças no app (C2) + imprimir cartões A5 (C3)", options: { valign: "middle" } },
         { text: "TI · Gráfica", options: { valign: "middle" } },
         { text: "~3 dias dev + R$ 5/un", options: { align: "center", valign: "middle" } },
       ],
       [
         { text: "3", options: { bold: true, align: "center", valign: "middle", color: COLORS.orange, fontSize: 18 } },
-        { text: "Lançar nova versão do app + distribuir cartões nos veículos", options: { valign: "middle" } },
+        { text: "Lançar nova versão do app + distribuir cartões + repostar vídeo no grupo", options: { valign: "middle" } },
         { text: "TI · Encarregado", options: { valign: "middle" } },
         { text: "—", options: { align: "center", valign: "middle" } },
       ],
@@ -664,9 +762,9 @@ async function main() {
 
     s.addTable(tabela, {
       x: 0.6, y: 1.7, w: 12.1, h: 4.5,
-      colW: [1.3, 6.2, 2.8, 1.8],
-      rowH: [0.55, 0.95, 1.05, 0.95, 0.95],
-      fontSize: 13, fontFace: FONT, color: COLORS.text,
+      colW: [1.3, 6.0, 3.0, 1.8],
+      rowH: [0.55, 1.0, 1.0, 1.0, 1.0],
+      fontSize: 12.5, fontFace: FONT, color: COLORS.text,
       border: { type: "solid", pt: 0.5, color: COLORS.cardBorder },
       fill: { color: COLORS.white }
     });
@@ -677,10 +775,11 @@ async function main() {
       fill: { color: COLORS.navy }, line: { type: "none" }, rectRadius: 0.08
     });
     s.addText([
-      { text: "Total: ", options: { fontSize: 14, bold: true, color: COLORS.orange } },
-      { text: "≈ 4 semanas  ·  ", options: { fontSize: 14, color: COLORS.white } },
-      { text: "< 8 h de desenvolvimento  ·  ", options: { fontSize: 14, color: COLORS.white } },
-      { text: "R$ 5 × frota (uma vez)", options: { fontSize: 14, color: COLORS.white } },
+      { text: "Total: ", options: { fontSize: 13, bold: true, color: COLORS.orange } },
+      { text: "≈ 4 semanas  ·  ", options: { fontSize: 13, color: COLORS.white } },
+      { text: "< 8 h de dev  ·  ", options: { fontSize: 13, color: COLORS.white } },
+      { text: "~3 h do encarregado  ·  ", options: { fontSize: 13, color: COLORS.white } },
+      { text: "R$ 5 × frota (uma vez)", options: { fontSize: 13, color: COLORS.white } },
     ], { x: 0.6, y: 6.4, w: 12.1, h: 0.65, fontFace: FONT, align: "center", valign: "middle", margin: 0 });
 
     s.addNotes(
@@ -690,7 +789,7 @@ async function main() {
   }
 
   // ============================================================
-  // SLIDE 9 — KPI + DECISÃO
+  // SLIDE 10 — KPI + DECISÃO
   // ============================================================
   {
     const s = pres.addSlide();
@@ -707,73 +806,76 @@ async function main() {
     });
 
     s.addText("Decisão", {
-      x: 0.6, y: 0.5, w: 12, h: 0.7,
-      fontSize: 38, bold: true, fontFace: FONT_TITLE, color: COLORS.white, margin: 0
+      x: 0.6, y: 0.4, w: 12, h: 0.65,
+      fontSize: 36, bold: true, fontFace: FONT_TITLE, color: COLORS.white, margin: 0
     });
-    s.addText("3 checkboxes — pode aprovar parcialmente, integralmente, ou pedir ajustes.", {
-      x: 0.6, y: 1.2, w: 12, h: 0.4,
-      fontSize: 15, fontFace: FONT, color: "B9C2D6", margin: 0
+    s.addText("4 checkboxes — pode aprovar parcialmente, integralmente, ou pedir ajustes.", {
+      x: 0.6, y: 1.05, w: 12, h: 0.35,
+      fontSize: 14, fontFace: FONT, color: "B9C2D6", margin: 0
     });
 
-    // 3 cards de aprovação
+    // 4 cards de aprovação (compactos pra caber)
+    // Cores escolhidas pra ALTO contraste com fundo navy-dark do slide
     const cards = [
-      { color: COLORS.green,  letra: "A", titulo: "Refazer tutorial (Camada 1)", sub: "~4 h dev · risco zero · faço esta semana" },
-      { color: COLORS.orange, letra: "B", titulo: "Redesign do app (Camada 2)", sub: "~3 dias dev · testar em homologação primeiro" },
-      { color: COLORS.blue,   letra: "C", titulo: "Cartão A5 impresso (Camada 3)", sub: "~R$ 5/veículo · uma ordem de impressão" },
+      { color: "4ADE80",         letra: "A", titulo: "Refazer tutorial (Camada 1)",            sub: "~4 h dev · risco zero · faço esta semana" },
+      { color: "FFA940",         letra: "B", titulo: "Redesign do app (Camada 2)",             sub: "~3 dias dev · testar em homologação primeiro" },
+      { color: "60A5FA",         letra: "C", titulo: "Cartão A5 impresso (Camada 3)",          sub: "~R$ 5/veículo · uma ordem de impressão" },
+      { color: "F472B6",         letra: "D", titulo: "Vídeo de treinamento WhatsApp (Camada 4)", sub: "R$ 0 · ~3 h do encarregado · publicado em 1 dia" },
     ];
 
     cards.forEach((c, i) => {
-      const x = 0.6, y = 1.95 + i * 1.05;
+      const x = 0.6, y = 1.55 + i * 0.85;
+      // Card escuro semi-transparente
       s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
-        x, y, w: 12.1, h: 0.95,
-        fill: { color: COLORS.white, transparency: 5 },
+        x, y, w: 12.1, h: 0.78,
+        fill: { color: "FFFFFF", transparency: 88 },
         line: { color: c.color, width: 2 },
         rectRadius: 0.1
       });
-      // Quadrado pra marcar
+      // Quadrado de check
       s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
-        x: x + 0.3, y: y + 0.2, w: 0.55, h: 0.55,
-        fill: { color: "FFFFFF" }, line: { color: c.color, width: 2 },
+        x: x + 0.25, y: y + 0.16, w: 0.46, h: 0.46,
+        fill: { color: COLORS.white }, line: { color: c.color, width: 2 },
         rectRadius: 0.05
       });
       s.addText(c.letra, {
-        x: x + 0.95, y: y + 0.1, w: 0.5, h: 0.75,
-        fontSize: 28, bold: true, fontFace: FONT_TITLE, color: c.color,
+        x: x + 0.82, y: y + 0.06, w: 0.45, h: 0.65,
+        fontSize: 24, bold: true, fontFace: FONT_TITLE, color: c.color,
         align: "center", valign: "middle", margin: 0
       });
       s.addText(c.titulo, {
-        x: x + 1.55, y: y + 0.12, w: 10.4, h: 0.4,
-        fontSize: 17, bold: true, fontFace: FONT, color: COLORS.white, margin: 0
+        x: x + 1.35, y: y + 0.08, w: 10.6, h: 0.35,
+        fontSize: 15, bold: true, fontFace: FONT, color: COLORS.white, margin: 0
       });
       s.addText(c.sub, {
-        x: x + 1.55, y: y + 0.5, w: 10.4, h: 0.4,
-        fontSize: 12, fontFace: FONT, color: "B9C2D6", margin: 0
+        x: x + 1.35, y: y + 0.42, w: 10.6, h: 0.32,
+        fontSize: 11, fontFace: FONT, color: "CAD5E8", margin: 0
       });
     });
 
-    // KPI box embaixo
+    // KPI box embaixo (compacto)
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, {
-      x: 0.6, y: 5.4, w: 12.1, h: 1.55,
+      x: 0.6, y: 5.15, w: 12.1, h: 1.55,
       fill: { color: "1F2A55" }, line: { color: COLORS.orange, width: 2 },
       rectRadius: 0.12
     });
     s.addText("KPI sugerido para medir:", {
-      x: 0.85, y: 5.55, w: 8, h: 0.4,
-      fontSize: 12, bold: true, color: COLORS.orange, fontFace: FONT, charSpacing: 4, margin: 0
+      x: 0.85, y: 5.3, w: 8, h: 0.35,
+      fontSize: 11, bold: true, color: COLORS.orange, fontFace: FONT, charSpacing: 4, margin: 0
     });
     s.addText("% de turnos com encerramento no mesmo dia", {
-      x: 0.85, y: 5.95, w: 8, h: 0.55,
-      fontSize: 21, bold: true, fontFace: FONT_TITLE, color: COLORS.white, margin: 0
+      x: 0.85, y: 5.65, w: 8, h: 0.55,
+      fontSize: 20, bold: true, fontFace: FONT_TITLE, color: COLORS.white, margin: 0
     });
     s.addText("Hoje (estimado): < 60 %  →  Meta em 4 semanas: ≥ 90 %", {
-      x: 0.85, y: 6.5, w: 8, h: 0.4,
-      fontSize: 13, fontFace: FONT, color: "B9C2D6", margin: 0
+      x: 0.85, y: 6.2, w: 8, h: 0.4,
+      fontSize: 12, fontFace: FONT, color: "B9C2D6", margin: 0
     });
 
     // Número grande "90%" à direita
     s.addText("90%", {
-      x: 9.5, y: 5.45, w: 3.0, h: 1.5,
-      fontSize: 84, bold: true, fontFace: FONT_TITLE, color: COLORS.orange,
+      x: 9.5, y: 5.2, w: 3.0, h: 1.45,
+      fontSize: 76, bold: true, fontFace: FONT_TITLE, color: COLORS.orange,
       align: "center", valign: "middle", margin: 0
     });
 
@@ -782,14 +884,15 @@ async function main() {
       { text: "Samuel Ferreira de Melo   ·   ", options: { color: "8A93A6" } },
       { text: "samuel.melo@engetecnica.com.br", options: { color: COLORS.white } },
     ], {
-      x: 0.6, y: 7.1, w: 12.1, h: 0.3,
+      x: 0.6, y: 6.95, w: 12.1, h: 0.3,
       fontSize: 11, fontFace: FONT, align: "center", margin: 0
     });
 
     s.addNotes(
-      "Fechamento. Pedir decisão item-a-item. Camada 1 pode começar hoje. " +
+      "Fechamento. Pedir decisão item-a-item. Camadas 1 e 4 podem começar hoje sem custo monetário. " +
       "Camadas 2 e 3 podem ser aprovadas em separado se houver dúvida sobre custo/escopo. " +
-      "Reforçar o KPI no final: queremos sair de < 60 % para 90 % em 4 semanas."
+      "Reforçar o KPI no final: queremos sair de < 60 % para 90 % em 4 semanas. " +
+      "Se aprovar só A (tutorial) e D (vídeo), já temos avanço imediato sem custo."
     );
   }
 
