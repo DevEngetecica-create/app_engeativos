@@ -94,6 +94,7 @@ export default function Veiculos() {
     page: 0,
     hasMore: true,
   });
+
   const [searchQuery, setSearchQuery] = useState("");
 
   const LIMIT = 15;
@@ -104,9 +105,11 @@ export default function Veiculos() {
   // 🔹 Buscar online
   // ===============================
   const fetchOnline = useCallback(async () => {
+    
     Toast.show("🟢 Carregando veículos online...", { duration: 1000 });
 
     const resp = await api.get("admin/ativo/veiculo");
+
     let responseData = resp?.data;
 
     responseData = parseApiResponsePayload(responseData);

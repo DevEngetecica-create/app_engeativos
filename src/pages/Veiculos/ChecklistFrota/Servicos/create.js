@@ -328,6 +328,7 @@ export default function CreateChecklistRealizadosAccordion() {
   // 🔹 CAPTURAR FOTO
   // =========================================
   const pickImage = async itemId => {
+
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permissão negada', 'Você precisa conceder permissão à câmera.');
@@ -581,13 +582,14 @@ export default function CreateChecklistRealizadosAccordion() {
                {isFechamento ? 'MODO FECHAMENTO' : 'MODO ABERTURA'}
              </Text>
           </View>
+          
           {vehicleInfo.tipo_hr == 1 ? (
             <Text style={styles.infoText}>🕒 {`Veículo: ${prefixo} |  🗓️ ${dataAtualString}`}</Text>
           ) : (
             <Text style={styles.infoText}>🛻 {`Veículo: ${prefixo} |  🗓️ ${dataAtualString}`}</Text>
           )}
 
-          <Border />
+          <Border/>
 
           <Text style={styles.infoText}>{`Total de itens: ${items.length}`}</Text>
 

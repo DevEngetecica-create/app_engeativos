@@ -7,6 +7,8 @@ import { NetworkProvider } from "./src/contexts/network";
 import Routes from "./src/routes/routes";
 import NetworkBanner from "./src/components/NetworkBanner";
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import Obras from "./src/pages/Notification/construction";
+
 
 export default function App() {
   const navigationRef = useNavigationContainerRef();
