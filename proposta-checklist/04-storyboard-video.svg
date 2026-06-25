@@ -1,0 +1,258 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" width="1400" height="900" font-family="'Segoe UI', Roboto, system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a2138"/>
+      <stop offset="100%" stop-color="#0f1422"/>
+    </linearGradient>
+    <linearGradient id="solBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffd966"/>
+      <stop offset="100%" stop-color="#ff9f0a"/>
+    </linearGradient>
+    <linearGradient id="luaBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5a6cb2"/>
+      <stop offset="100%" stop-color="#2e3a5e"/>
+    </linearGradient>
+    <linearGradient id="alertBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e1201d"/>
+      <stop offset="100%" stop-color="#a51612"/>
+    </linearGradient>
+    <linearGradient id="sunsetBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff7639"/>
+      <stop offset="50%" stop-color="#e54f0c"/>
+      <stop offset="100%" stop-color="#2e3a5e"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <rect width="1400" height="900" fill="url(#bg)"/>
+
+  <!-- TÍTULO -->
+  <g transform="translate(700, 50)">
+    <text text-anchor="middle" font-size="14" font-weight="700" fill="#a3aec5" letter-spacing="6">STORYBOARD · CAMADA 4 · VÍDEO DE TREINAMENTO</text>
+    <text text-anchor="middle" y="36" font-size="34" font-weight="900" fill="#fff">75 segundos · vertical · WhatsApp</text>
+    <text text-anchor="middle" y="64" font-size="14" fill="#b9c2d6">8 cenas-chave · gravado pelo encarregado · áudio claro + legendas obrigatórias</text>
+  </g>
+
+  <!-- ============ GRID 4×2 FRAMES ============ -->
+  <!-- Cada frame: 280×280, com header + label. Total cell: 300×340. Margens 50, gap 25. -->
+
+  <!-- FRAME 1: Encarregado abre falando -->
+  <g transform="translate(50, 175)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#ff7639" letter-spacing="2">0:00 – 0:08</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <!-- Encarregado simples — círculo cabeça + ombros -->
+    <rect x="40" y="60" width="200" height="220" fill="#3a4670"/>
+    <ellipse cx="140" cy="120" rx="40" ry="46" fill="#d4a373"/>
+    <path d="M 100 165 Q 140 175 180 165 L 180 280 L 100 280 Z" fill="#1f51fe"/>
+    <text x="140" y="105" text-anchor="middle" font-size="18">😐</text>
+    <!-- Balão de fala -->
+    <rect x="15" y="195" width="250" height="60" rx="8" fill="#fff" opacity="0.95"/>
+    <text x="140" y="218" text-anchor="middle" font-size="11" font-weight="800" fill="#222">"Todo dia vocês fazem</text>
+    <text x="140" y="234" text-anchor="middle" font-size="14" font-weight="900" fill="#ff7639">DOIS checklists"</text>
+    <text x="140" y="248" text-anchor="middle" font-size="10" fill="#666">um quando chega, outro pra ir embora</text>
+    <!-- número cena -->
+    <circle cx="255" cy="25" r="14" fill="#ff7639"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">1</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">Apresentação</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">Plano fechado · pátio da garagem</text>
+  </g>
+
+  <!-- FRAME 2: Mão desbloqueando celular -->
+  <g transform="translate(375, 175)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#ff7639" letter-spacing="2">0:08 – 0:12</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <!-- Cenário: mesa garagem com celular -->
+    <rect x="0" y="200" width="280" height="80" fill="#5a3a2a"/>
+    <!-- celular vertical -->
+    <rect x="100" y="40" width="80" height="170" rx="10" fill="#0b0e16"/>
+    <rect x="106" y="46" width="68" height="158" rx="6" fill="#1a2138"/>
+    <!-- desbloquear (cadeado aberto) -->
+    <text x="140" y="135" text-anchor="middle" font-size="32">🔓</text>
+    <!-- Mão estilizada -->
+    <ellipse cx="195" cy="165" rx="35" ry="20" fill="#d4a373" transform="rotate(-25, 195, 165)"/>
+    <circle cx="220" cy="155" r="6" fill="#d4a373"/>
+    <text x="50" y="80" font-size="10" font-weight="700" fill="#fff">(sem fala)</text>
+    <text x="50" y="95" font-size="9" fill="#b9c2d6">som ambiente</text>
+    <circle cx="255" cy="25" r="14" fill="#ff7639"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">2</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">Transição</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">Corte rápido pro celular</text>
+  </g>
+
+  <!-- FRAME 3: Tela ABRIR -->
+  <g transform="translate(700, 175)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#ff7639" letter-spacing="2">0:12 – 0:25</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <!-- Tela full do celular -->
+    <rect x="50" y="20" width="180" height="240" rx="20" fill="#0b0e16"/>
+    <rect x="56" y="26" width="168" height="228" rx="16" fill="#f5f6f8"/>
+    <!-- notch -->
+    <rect x="116" y="24" width="48" height="9" rx="4" fill="#0b0e16"/>
+    <!-- App: Home com 2 botões -->
+    <text x="140" y="55" text-anchor="middle" font-size="9" font-weight="800" fill="#222">Olá, SAMUEL</text>
+    <!-- Botão laranja ABRIR (destacado, com aura) -->
+    <rect x="65" y="68" width="78" height="60" rx="8" fill="none" stroke="#ff7639" stroke-width="3" opacity="0.7"/>
+    <rect x="68" y="71" width="72" height="54" rx="7" fill="url(#solBg)"/>
+    <text x="104" y="96" text-anchor="middle" font-size="22">🌅</text>
+    <text x="104" y="115" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">ABRIR</text>
+    <!-- Botão azul ENCERRAR (apagado) -->
+    <rect x="148" y="71" width="72" height="54" rx="7" fill="url(#luaBg)" opacity="0.4"/>
+    <text x="184" y="96" text-anchor="middle" font-size="22" opacity="0.6">🌙</text>
+    <text x="184" y="115" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" opacity="0.7">ENCERRAR</text>
+    <!-- Lista veículos -->
+    <rect x="65" y="135" width="155" height="22" rx="5" fill="#fff" stroke="#ff7639" stroke-width="1.5"/>
+    <text x="73" y="149" font-size="9" font-weight="800" fill="#222">AC-001 selecionado</text>
+    <!-- SIM/NÃO -->
+    <rect x="65" y="165" width="50" height="22" rx="4" fill="#22b07d"/>
+    <text x="90" y="180" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">SIM</text>
+    <rect x="120" y="165" width="50" height="22" rx="4" fill="#e1201d"/>
+    <text x="145" y="180" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">NÃO</text>
+    <rect x="175" y="165" width="45" height="22" rx="4" fill="#1f51fe"/>
+    <text x="197" y="180" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">📷</text>
+    <!-- Selo concluído -->
+    <circle cx="140" cy="215" r="14" fill="#22b07d"/>
+    <text x="140" y="220" text-anchor="middle" font-size="16" font-weight="900" fill="#fff">✓</text>
+    <text x="140" y="245" text-anchor="middle" font-size="9" font-weight="800" fill="#22b07d">ABERTO 07:14</text>
+    <circle cx="255" cy="25" r="14" fill="#ff7639"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">3</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">🌅 Abrir turno</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">Tela real do app</text>
+  </g>
+
+  <!-- FRAME 4: Pôr-do-sol (transição) -->
+  <g transform="translate(1025, 175)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#ff7639" letter-spacing="2">0:25 – 0:30</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <!-- Céu pôr-do-sol -->
+    <rect x="2" y="2" width="276" height="180" rx="14" fill="url(#sunsetBg)"/>
+    <!-- Sol -->
+    <circle cx="140" cy="160" r="32" fill="#fff5e6" opacity="0.95"/>
+    <circle cx="140" cy="160" r="22" fill="#ffd966"/>
+    <!-- silhueta de garagem -->
+    <rect x="0" y="180" width="280" height="20" fill="#1a2138"/>
+    <rect x="40" y="160" width="80" height="40" fill="#1a2138"/>
+    <rect x="170" y="170" width="90" height="30" fill="#1a2138"/>
+    <!-- relógio -->
+    <circle cx="140" cy="240" r="22" fill="#fff"/>
+    <line x1="140" y1="240" x2="140" y2="225" stroke="#222" stroke-width="2.5"/>
+    <line x1="140" y1="240" x2="152" y2="240" stroke="#222" stroke-width="2"/>
+    <text x="140" y="200" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">17h</text>
+    <circle cx="255" cy="25" r="14" fill="#ff7639"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">4</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">Transição</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">Pôr-do-sol · sem fala</text>
+  </g>
+
+  <!-- FRAME 5: Mesma mão, fim do dia (banner laranja) -->
+  <g transform="translate(50, 555)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#5a6cb2" letter-spacing="2">0:30 – 0:36</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <!-- celular -->
+    <rect x="50" y="20" width="180" height="240" rx="20" fill="#0b0e16"/>
+    <rect x="56" y="26" width="168" height="228" rx="16" fill="#f5f6f8"/>
+    <rect x="116" y="24" width="48" height="9" rx="4" fill="#0b0e16"/>
+    <!-- BANNER LARANJA -->
+    <rect x="65" y="48" width="155" height="32" rx="6" fill="#fff5e6" stroke="#ff7639" stroke-width="1.5"/>
+    <text x="73" y="60" font-size="8" font-weight="800" fill="#a3530b">⚠️ TURNO ABERTO</text>
+    <text x="73" y="72" font-size="7" fill="#a3530b">AC-001 desde 07:14 — encerre!</text>
+    <!-- Botões -->
+    <rect x="65" y="90" width="72" height="54" rx="7" fill="url(#solBg)" opacity="0.4"/>
+    <text x="101" y="116" text-anchor="middle" font-size="22" opacity="0.7">🌅</text>
+    <text x="101" y="134" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" opacity="0.8">ABRIR</text>
+    <!-- Botão azul ENCERRAR (com aura) -->
+    <rect x="142" y="87" width="78" height="60" rx="8" fill="none" stroke="#5a6cb2" stroke-width="3" opacity="0.7"/>
+    <rect x="145" y="90" width="72" height="54" rx="7" fill="url(#luaBg)"/>
+    <text x="181" y="116" text-anchor="middle" font-size="22">🌙</text>
+    <text x="181" y="134" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">ENCERRAR</text>
+    <!-- dedo apontando -->
+    <g transform="translate(212, 110) rotate(-15)">
+      <path d="M -2.5 -2 V -12 a 3 3 0 0 1 6 0 V -2 h 1 l 1.5 -6 a 2.5 2.5 0 0 1 5 1 L 10 0 v 6 a 9 9 0 0 1 -9 9 a 9 9 0 0 1 -8 -5 l -3 -7 a 2.5 2.5 0 0 1 4 -2.5 L -6 3 z"
+            fill="#fff" stroke="#222" stroke-width="0.8"/>
+    </g>
+    <circle cx="255" cy="25" r="14" fill="#5a6cb2"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">5</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">Banner pendência</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">"Vou pra casa"</text>
+  </g>
+
+  <!-- FRAME 6: ENCERRAR + checklist saída -->
+  <g transform="translate(375, 555)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#5a6cb2" letter-spacing="2">0:36 – 0:48</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <rect x="50" y="20" width="180" height="240" rx="20" fill="#0b0e16"/>
+    <rect x="56" y="26" width="168" height="228" rx="16" fill="#f5f6f8"/>
+    <rect x="116" y="24" width="48" height="9" rx="4" fill="#0b0e16"/>
+    <text x="140" y="55" text-anchor="middle" font-size="10" font-weight="800" fill="#222">🌙 ENCERRAR TURNO</text>
+    <!-- veiculo + perguntas -->
+    <rect x="65" y="65" width="155" height="22" rx="5" fill="#f4f5fb" stroke="#5a6cb2" stroke-width="1.5"/>
+    <text x="73" y="80" font-size="9" font-weight="800" fill="#222">AC-001 (mesmo)</text>
+    <text x="73" y="100" font-size="8" font-weight="700" fill="#333">Pneus OK?</text>
+    <rect x="65" y="105" width="50" height="20" rx="4" fill="#22b07d"/>
+    <text x="90" y="118" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">SIM</text>
+    <text x="73" y="142" font-size="8" font-weight="700" fill="#333">Freio OK?</text>
+    <rect x="65" y="147" width="50" height="20" rx="4" fill="#22b07d"/>
+    <text x="90" y="160" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">SIM</text>
+    <text x="73" y="184" font-size="8" font-weight="700" fill="#333">Foto cliente?</text>
+    <rect x="65" y="189" width="50" height="20" rx="4" fill="#1f51fe"/>
+    <text x="90" y="202" text-anchor="middle" font-size="8" font-weight="800" fill="#fff">📷</text>
+    <!-- Encerrado -->
+    <circle cx="140" cy="230" r="14" fill="#22b07d"/>
+    <text x="140" y="235" text-anchor="middle" font-size="16" font-weight="900" fill="#fff">✓</text>
+    <text x="140" y="252" text-anchor="middle" font-size="8" font-weight="800" fill="#22b07d">FECHADO 17:32</text>
+    <circle cx="255" cy="25" r="14" fill="#5a6cb2"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">6</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">🌙 Encerrar turno</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">Marca, foto, pronto</text>
+  </g>
+
+  <!-- FRAME 7: AVISO VERMELHO -->
+  <g transform="translate(700, 555)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#e1201d" letter-spacing="2">0:48 – 1:00</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <!-- Cara séria do encarregado -->
+    <rect x="40" y="40" width="200" height="220" fill="#3a4670"/>
+    <ellipse cx="140" cy="110" rx="40" ry="46" fill="#d4a373"/>
+    <path d="M 100 155 Q 140 165 180 155 L 180 260 L 100 260 Z" fill="#1f51fe"/>
+    <text x="140" y="95" text-anchor="middle" font-size="18">😠</text>
+    <!-- mão apontando pro peito -->
+    <circle cx="100" cy="195" r="12" fill="#d4a373"/>
+    <!-- balão vermelho de aviso -->
+    <rect x="15" y="170" width="250" height="80" rx="8" fill="url(#alertBg)"/>
+    <text x="35" y="195" font-size="22">⚠️</text>
+    <text x="65" y="195" font-size="11" font-weight="800" fill="#fff">SUA HORA</text>
+    <text x="65" y="212" font-size="13" font-weight="900" fill="#fff">NÃO CONTA</text>
+    <text x="65" y="228" font-size="8" fill="#fff" opacity="0.95">Aviso vermelho amanhã no app</text>
+    <circle cx="255" cy="25" r="14" fill="#e1201d"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">7</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">⚠️ Aviso crítico</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">"se esquecer..."</text>
+  </g>
+
+  <!-- FRAME 8: Fechamento -->
+  <g transform="translate(1025, 555)">
+    <text x="0" y="-8" font-size="11" font-weight="800" fill="#22b07d" letter-spacing="2">1:00 – 1:15</text>
+    <rect x="0" y="0" width="280" height="280" rx="14" fill="#2a3550" stroke="#3a4670" stroke-width="2"/>
+    <rect x="40" y="40" width="200" height="220" fill="#3a4670"/>
+    <ellipse cx="140" cy="110" rx="40" ry="46" fill="#d4a373"/>
+    <path d="M 100 155 Q 140 165 180 155 L 180 260 L 100 260 Z" fill="#1f51fe"/>
+    <text x="140" y="95" text-anchor="middle" font-size="18">😊</text>
+    <!-- Balão de fala fechamento -->
+    <rect x="15" y="175" width="250" height="78" rx="8" fill="#fff" opacity="0.95"/>
+    <text x="140" y="198" text-anchor="middle" font-size="13" font-weight="900" fill="#ff7639">DOIS por dia</text>
+    <text x="140" y="216" text-anchor="middle" font-size="9" fill="#222">Chegou, abre. Vai embora, encerra.</text>
+    <text x="140" y="240" text-anchor="middle" font-size="11" font-weight="800" fill="#22b07d">Tamo junto!</text>
+    <circle cx="255" cy="25" r="14" fill="#22b07d"/>
+    <text x="255" y="30" text-anchor="middle" font-size="14" font-weight="900" fill="#fff">8</text>
+    <text x="0" y="305" font-size="13" font-weight="800" fill="#fff">Fechamento</text>
+    <text x="0" y="323" font-size="11" fill="#b9c2d6">Sorri, fim</text>
+  </g>
+
+  <!-- RODAPÉ (movido pro topo, abaixo do subtítulo, pra não colidir com labels dos frames) -->
+  <g transform="translate(700, 138)">
+    <text text-anchor="middle" font-size="11" fill="#8a93a6" letter-spacing="2">
+      🏗️ ENGETECNICA · ENGEATIVOS — gravar com celular, vertical, 75 segundos
+    </text>
+  </g>
+</svg>

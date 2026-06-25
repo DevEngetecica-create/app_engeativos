@@ -1,0 +1,79 @@
+# --- DEPENDÊNCIAS ---
+node_modules/
+vendor/
+
+# --- BUILD / CACHE ---
+dist/
+web-build/
+public/storage
+public/hot
+public/build
+storage/*.key
+storage/debugbar/
+storage/framework/
+storage/logs/
+bootstrap/cache/
+
+# --- EXPO / REACT NATIVE ---
+.expo/
+.expo-shared/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Pastas nativas geradas por prebuild — EAS regenera no build via CNG
+/android
+/ios
+
+# --- SISTEMA / SO ---
+.DS_Store
+Thumbs.db
+
+# --- IDE / EDITOR ---
+.idea/
+.vscode/
+*.swp
+
+# --- CLAUDE CODE / TOOLING LOCAL ---
+.claude/
+
+# --- SCRATCH / DUMPS / BACKUPS LOCAIS (nao commitar) ---
+scratch.js
+fix_uuid.js
+update_create.js
+update_edit.js
+temp.json
+response.json
+veiculos_response.json
+assets.zip
+
+# --- CERTIFICADOS / CHAVES ---
+*.pem
+
+# --- VARIÁVEIS DE AMBIENTE ---
+.env
+.env*.local
+
+# --- TYPESCRIPT ---
+*.tsbuildinfo
+*.tscache
+*.tsxcache
+*.ts
+*.tsx
+tsconfig.tsbuildinfo
+tsconfig.tsbuildinfo.*
+tsconfig.json
+tsconfig.*.json
+tslint.json
+tslint.yaml
+tslint.yml
+tslint.js
+tslint.cjs
+tslint.mjs

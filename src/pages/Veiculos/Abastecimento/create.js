@@ -1,395 +1,384 @@
-//.src/pages/Veiculos/Abastecimento/creat.js
-import React, { useState, useCallback, useEffect } from 'react';
-import { Alert, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TextInput, Image } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  ScrollView,
+  Text,
+  Alert,
+  ActivityIndicator,
+  StyleSheet,
+  View,
+  Image
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import styled from 'styled-components/native';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../../../config/api';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { salvarLocalmente } from '../../../config/database/dataBaseSave';
-import NetInfo from '@react-native-community/netinfo';
+import uuid from 'react-native-uuid';
+import { db, executeSql } from '../../../config/database/database';
+import { showToast } from '../../../utils/toast';
+import {
+  integerInputBlockingSeparators,
+  integerInputValue,
+  integerNumberValue,
+  onlyDigits,
+  currencyMask,
+  currencyToNumber
+} from '../../../utils/numberInput';
+import { nowLocalTimestamp } from '../../../utils/datetime';
 
-const Container = styled.ScrollView`
-  padding: 20px;
-  background-color: #f5f5f5;
+// =============================
+// 🔹 Styled Components
+// =============================
+const Container = styled.View`
+  flex: 1;
+  padding: 10px;
+  background: #f5f5f5;
 `;
-
 const Card = styled.View`
   background-color: #fff;
-  padding: 16px;
+  padding: 12px;
   margin-bottom: 12px;
   border-radius: 8px;
   elevation: 2;
+  border-left-width: 6px;
+  border-left-color: #1f51fe;
 `;
-
-const SectionTitle = styled.Text`
-  font-size: 18px;
-  font-weight: bold;
-  color: #3CB371;
-  margin-vertical: 10px;
-`;
-
-const VehicleImage = styled.Image`
-  width: 100%;
-  height: 200px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-`;
-
-const InputGroup = styled.View`
-  margin-bottom: 16px;
-`;
-
 const Label = styled.Text`
   font-weight: bold;
   margin-bottom: 4px;
   color: #333;
 `;
-
 const Input = styled.TextInput`
-  border: 1px solid #ccc;
+  border: 1px solid ${props => (props.error ? '#d9534f' : '#ccc')};
   border-radius: 6px;
-  padding: 12px;
-  font-size: 16px;
+  padding: 8px;
+  margin-bottom: 10px;
+  color: #000;
 `;
-
-const ErrorText = styled.Text`
-  color: #dc3545;
-  margin-top: 4px;
-  font-size: 14px;
-`;
-
 const Btn = styled.TouchableOpacity`
-  background-color: ${props => props.disabled ? 'darkorange' : 'green'};
-  padding: 16px;
+  background-color: ${props => (props.disabled ? '#999' : props.color || '#1f51fe')};
+  padding: 12px;
   border-radius: 6px;
   align-items: center;
-  margin-vertical: 8px;
+  margin-top: 10px;
 `;
-const BtnFoto = styled.TouchableOpacity`
-  background-color: ${props => props.disabled ? 'darkorange' : 'darkorange'};
-  padding: 16px;
-  border-radius: 6px;
-  align-items: center;
-  margin-vertical: 8px;
-`;
-
 const BtnText = styled.Text`
   color: #fff;
   font-weight: bold;
-  font-size: 16px;
+`;
+const Linha = styled.View`
+  width: 100%;
+  height: 1px;
+  background-color: #1f51fe;
+  margin-vertical: 10px;
+`;
+const ImagePreview = styled.Image`
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border-width: 1px;
+  border-color: #ccc;
 `;
 
-const baseImageUrl = 'https://sga-engeativos.com.br/imagens/veiculos';
+// =============================
+// 🔹 Funções auxiliares
+// =============================
+const formatarDataAtual = () => {
+  const d = new Date();
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const ano = d.getFullYear();
+  const hora = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dia}/${mes}/${ano} ${hora}:${min}`;
+};
 
-export default function CreateAbastecimento() {
+// =============================
+// 🔹 Principal
+// =============================
+export default function AbastecimentoCreate() {
   const navigation = useNavigation();
-  const {id_veiculo, prefixo } = useRoute().params;
+  const { id_veiculo, id_obra, prefixo } = useRoute().params;
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [veiculoData, setVeiculoData] = useState(null);
-  const [userData, setUserData] = useState(null);
-
+  const [tipoVeiculo, setTipoVeiculo] = useState(null);
+  const [valores, setValores] = useState({ anterior: 0 });
   const [form, setForm] = useState({
-    veiculo_id: id_veiculo,
-    id_obra: '',
-    id_funcionario: '',
-    data_abastecimento: new Date().toISOString().split('T')[0],
     fornecedor: '',
-    combustivel: 'Diesel',
+    combustivel: '',
     quantidade: '',
     valor_do_litro: '',
-    valor_total: '0.00',
-    arquivo: null // nome do arquivo
+    valor_total: '',
+    km_anterior: '',
+    km_atual: '',
+    hr_anterior: '',
+    hr_atual: '',
+    arquivo_app: null
   });
 
-  const fetchInitialData = async () => {
+  // =============================
+  // 🔹 Buscar tipo e último registro
+  // =============================
+  const fetchDados = useCallback(async () => {
+    setLoading(true);
     try {
-      const [user, veiculoResponse] = await Promise.all([
-        AsyncStorage.getItem('@user'), api.get(`admin/ativo/veiculo/abastecimento/create/73`)
-      ]);
+      const veiculo = await executeSql(`SELECT tipo FROM veiculos WHERE id = ?`, [id_veiculo]);
+      const tipo = veiculo[0]?.tipo || null;
+      setTipoVeiculo(tipo);
 
-      const userParsed = JSON.parse(user);
-      const veiculo = veiculoResponse.data?.veiculo;
+      const ult = await executeSql(
+        `SELECT km_atual, hr_atual FROM veiculo_abastecimentos WHERE veiculo_id = ? ORDER BY id DESC LIMIT 1`,
+        [id_veiculo]
+      );
 
-      console.log(veiculoResponse.data)
-
-      setUserData(userParsed);
-      setVeiculoData(veiculo);
-
-      setForm(prev => ({
-        ...prev,
-        id_obra: veiculo?.obra_id?.toString() || '',
-        id_funcionario: userParsed?.id?.toString() || ''
-      }));
-
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível carregar os dados iniciais');
+      if (tipo == 4) {
+        const anterior = integerInputValue(ult[0]?.hr_atual || 0);
+        setValores({ anterior: integerNumberValue(anterior, 0) });
+        setForm(prev => ({ ...prev, hr_anterior: anterior }));
+      } else {
+        const anterior = integerInputValue(ult[0]?.km_atual || 0);
+        setValores({ anterior: integerNumberValue(anterior, 0) });
+        setForm(prev => ({ ...prev, km_anterior: anterior }));
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados:', err);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [id_veiculo]);
 
   useEffect(() => {
-    fetchInitialData();
-  }, []);
+    fetchDados();
+  }, [fetchDados]);
 
-  const validateForm = () => {
-    const newErrors = {};
-    const requiredFields = [
-      'data_abastecimento',
-      'fornecedor',
-      'combustivel',
-      'quantidade',
-      'valor_do_litro',
-      'valor_total'
-    ];
-
-    requiredFields.forEach(field => {
-      if (!form[field] || form[field].trim() === '') {
-        newErrors[field] = 'Campo obrigatório';
-      }
-    });
-
-    if (isNaN(form.quantidade) || parseFloat(form.quantidade) <= 0) {
-      newErrors.quantidade = 'Quantidade inválida';
-    }
-
-    if (isNaN(form.valor_do_litro) || parseFloat(form.valor_do_litro) <= 0) {
-      newErrors.valor_do_litro = 'Valor inválido';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // =============================
+  // 🔹 Usuário logado
+  // =============================
+  const getUsuario = async () => {
+    const res = await executeSql(`SELECT id, email FROM users LIMIT 1`);
+    return res.length ? res[0] : { id: null, email: 'desconhecido' };
   };
 
-  const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão negada', 'É necessário permitir o uso da câmera.');
-      return;
-    }
+  // =============================
+  // 🔹 Cálculo automático do total
+  //   quantidade e valor_do_litro vem da currencyMask (ex: "7.19")
+  // =============================
+  useEffect(() => {
+    const q = currencyToNumber(form.quantidade);
+    const v = currencyToNumber(form.valor_do_litro);
+    const total = (q * v).toFixed(2);
+    setForm(prev => ({ ...prev, valor_total: total }));
+  }, [form.quantidade, form.valor_do_litro]);
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-      allowsEditing: true,
-    });
-
-    if (!result.canceled && result.assets?.[0]) {
-      setForm(prev => ({
-        ...prev,
-        arquivo: result.assets[0]
-      }));
-    }
-  };
-
-  const handleQuantityChange = (value) => {
-    const numericValue = value.replace(/[^0-9.,]/g, '');
-    setForm(prev => ({
-      ...prev,
-      quantidade: numericValue,
-      valor_total: calculateTotal(numericValue, prev.valor_do_litro)
-    }));
-  };
-
-  const formatCurrency = (value) => {
-    if (!value) return 'R$ 0,00';
-    return Number(value).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    });
-  };
-
-  const handlePriceChange = text => {
-    const numeric = Number(text.replace(/\D/g, '')) / 100;
-    setForm(prev => ({
-      ...prev,
-      valor_do_litro: numeric,
-      valor_total: calculateTotal(prev.quantidade, numeric),
-    }));
-  };
-
-  const calculateTotal = (qty, price) => {
-    const quantity = parseFloat(qty) || 0;
-    const unitPrice = parseFloat(price) || 0;
-    return (quantity * unitPrice).toFixed(2);
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-    setLoading(true);
-
+  // =============================
+  // 🔹 Capturar imagem da câmera
+  // =============================
+  const abrirCamera = async () => {
     try {
-      const connection = await NetInfo.fetch();
-
-      const dataToSave = {
-        ...form,
-        arquivo: form.arquivo, // mantemos o objeto com `uri`
-      };
-
-      if (!connection.isConnected) {
-        await salvarLocalmente(dataToSave); // salva localmente
-        Alert.alert('Offline', 'Dados salvos localmente. Serão enviados quando estiver online.');
-        navigation.goBack();
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permissão negada', 'É necessário permitir acesso à câmera.');
         return;
       }
 
-      // Envia para API Laravel
-      const formData = new FormData();
-      Object.entries(form).forEach(([key, value]) => {
-        if (key === 'arquivo' && value) {
-          formData.append('arquivo', {
-            uri: value.uri,
-            name: `abastecimento_${Date.now()}.jpg`,
-            type: 'image/jpeg'
-          });
-        } else {
-          formData.append(key, value);
-        }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.7,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
       });
 
-      await api.post('admin/ativo/veiculo/abastecimento/store', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      Alert.alert('Sucesso', 'Abastecimento cadastrado com sucesso!');
-      navigation.goBack();
-
+      if (!result.canceled) {
+        const uri = result.assets[0].uri;
+        setForm(prev => ({ ...prev, arquivo_app: uri }));
+      }
     } catch (error) {
-      console.log(error);
-      Alert.alert('Erro', 'Falha ao cadastrar abastecimento.');
+      console.error('Erro ao abrir câmera:', error);
+      Alert.alert('Erro', 'Não foi possível acessar a câmera.');
+    }
+  };
+
+  // =============================
+  // 🔹 Validação e salvamento
+  // =============================
+  const handleSubmit = async () => {
+    if (!form.quantidade || !form.valor_do_litro) {
+      Alert.alert('Atenção', 'Preencha quantidade e valor do litro.');
+      return;
+    }
+
+    if (tipoVeiculo == 4) {
+      const hrAtual = integerNumberValue(form.hr_atual, 0);
+      const hrAnterior = integerNumberValue(form.hr_anterior, 0);
+      if (hrAtual < hrAnterior) {
+        Alert.alert('Erro', 'Horímetro atual não pode ser menor que o anterior.');
+        return;
+      }
+      if (hrAtual > hrAnterior + 10) {
+        Alert.alert('Erro', `O salto não pode exceder 10h (Máx permitido: ${hrAnterior + 10}).`);
+        return;
+      }
+    } else {
+      if (integerNumberValue(form.km_atual, 0) < integerNumberValue(form.km_anterior, 0)) {
+        Alert.alert('Erro', 'Hodômetro atual não pode ser menor que o anterior.');
+        return;
+      }
+    }
+
+    try {
+      setLoading(true);
+      const usuario = await getUsuario();
+      const data_abastecimento = nowLocalTimestamp();
+      const kmAnterior = integerInputValue(form.km_anterior);
+      const kmAtual = onlyDigits(form.km_atual);
+      const hrAnterior = integerInputValue(form.hr_anterior);
+      const hrAtual = onlyDigits(form.hr_atual);
+
+      const idLocalAbast = uuid.v4();
+
+      await executeSql(
+        `INSERT INTO veiculo_abastecimentos (
+          id_local, veiculo_id, id_obra, id_funcionario, user_create,
+          data_abastecimento, km_anterior, km_atual,
+          hr_anterior, hr_atual, fornecedor, combustivel,
+          quantidade, valor_do_litro, valor_total,
+          tipo, arquivo_app, sync_status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);`,
+        [
+          idLocalAbast,
+          id_veiculo,
+          id_obra,
+          usuario.id,
+          usuario.email,
+          data_abastecimento,
+          kmAnterior,
+          kmAtual,
+          hrAnterior,
+          hrAtual,
+          form.fornecedor,
+          form.combustivel,
+          form.quantidade,
+          form.valor_do_litro,
+          form.valor_total,
+          tipoVeiculo,
+          form.arquivo_app,
+          data_abastecimento
+        ]
+      );
+
+      showToast('✅ Abastecimento salvo com sucesso!', 'success');
+      navigation.navigate('VeiculoAbastFrota', { id_veiculo, id_obra, prefixo });
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Erro', 'Falha ao salvar abastecimento.');
     } finally {
       setLoading(false);
     }
   };
 
+  // =============================
+  // 🔹 Interface
+  // =============================
+  if (loading) {
+    return (
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#1f51fe" />
+      </Container>
+    );
+  }
+
+  const isMaquina = tipoVeiculo == 4;
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
-    >
-      <Container keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <Container>
+        <Text style={{ fontWeight: 'bold', marginBottom: 10, color: '#333' }}>
+          Veículo: {prefixo} | Obra: {id_obra}
+        </Text>
+        <Linha />
+
         <Card>
-          {/* Imagem do veículo */}
-          {veiculoData?.imagem && (
-            <VehicleImage
-              source={{ uri: `${baseImageUrl}/${veiculoData.imagem}` }}
-              resizeMode="contain"
-            />
+          <Label>Data do Abastecimento</Label>
+          <Input editable={false} value={formatarDataAtual()} />
+
+          {isMaquina ? (
+            <>
+              <Label>Horímetro Anterior</Label>
+              <Input editable={false} value={String(form.hr_anterior)} />
+
+              <Label>Horímetro Atual</Label>
+              <Input
+                keyboardType="numeric"
+                value={form.hr_atual}
+                onChangeText={v => setForm({
+                  ...form,
+                  hr_atual: integerInputBlockingSeparators(v, form.hr_atual)
+                })}
+              />
+            </>
+          ) : (
+            <>
+              <Label>Hodômetro Anterior</Label>
+              <Input editable={false} value={String(form.km_anterior)} />
+
+              <Label>Hodômetro Atual</Label>
+              <Input
+                keyboardType="numeric"
+                value={form.km_atual}
+                onChangeText={v => setForm({
+                  ...form,
+                  km_atual: integerInputBlockingSeparators(v, form.km_atual)
+                })}
+              />
+            </>
           )}
 
-          {/* Dados do Veículo */}
-          <SectionTitle>Dados do Veículo</SectionTitle>
-          <InputGroup>
-            <Label>Prefixo:</Label>
-            <Input value={prefixo || ''} editable={false} />
-          </InputGroup>
+          <Label>Fornecedor</Label>
+          <Input
+            value={form.fornecedor}
+            onChangeText={v => setForm({ ...form, fornecedor: v })}
+            placeholder="Nome do fornecedor"
+          />
 
-          {/* Dados do Abastecimento */}
-          <SectionTitle>Dados do Abastecimento</SectionTitle>
+          <Label>Combustível</Label>
+          <Input
+            value={form.combustivel}
+            onChangeText={v => setForm({ ...form, combustivel: v })}
+            placeholder="Ex: Diesel S10"
+          />
 
-          <InputGroup>
-            <Label>Data do Abastecimento *</Label>
-            <Input
-              value={form.data_abastecimento}
-              onChangeText={v => setForm({ ...form, data_abastecimento: v })}
-              placeholder="AAAA-MM-DD"
-            />
-            {errors.data_abastecimento && <ErrorText>{errors.data_abastecimento}</ErrorText>}
-          </InputGroup>
+          <Label>Quantidade (L)</Label>
+          <Input
+            keyboardType="numeric"
+            value={form.quantidade}
+            onChangeText={v => setForm({ ...form, quantidade: currencyMask(v) })}
+            placeholder="0.00"
+          />
 
-          <InputGroup>
-            <Label>Fornecedor *</Label>
-            <Input
-              value={form.fornecedor}
-              onChangeText={v => setForm({ ...form, fornecedor: v })}
-              placeholder="Nome do fornecedor"
-            />
-            {errors.fornecedor && <ErrorText>{errors.fornecedor}</ErrorText>}
-          </InputGroup>
+          <Label>Valor por Litro (R$)</Label>
+          <Input
+            keyboardType="numeric"
+            value={form.valor_do_litro}
+            onChangeText={v => setForm({ ...form, valor_do_litro: currencyMask(v) })}
+            placeholder="0.00"
+          />
 
-          <InputGroup>
-            <Label>Combustível *</Label>
-            <Input
-              value={form.combustivel}
-              onChangeText={v => setForm({ ...form, combustivel: v })}
-              placeholder="Tipo de combustível"
-            />
-            {errors.combustivel && <ErrorText>{errors.combustivel}</ErrorText>}
-          </InputGroup>
+          <Label>Total (R$)</Label>
+          <Input editable={false} value={String(form.valor_total)} />
 
-          <InputGroup>
-            <Label>Quantidade (litros) *</Label>
-            <TextInput
-              style={styles.input}
-              value={form.quantidade}
-              onChangeText={handleQuantityChange}
-              placeholder="Ex: 50,5"
-              keyboardType="decimal-pad"
-            />
-            {errors.quantidade && <ErrorText>{errors.quantidade}</ErrorText>}
-          </InputGroup>
+          <Linha />
+          <Label>Comprovante (foto)</Label>
 
-          <InputGroup>
-            <Label>Valor por Litro *</Label>
-            <TextInput
-              style={styles.input}
-              value={formatCurrency(form.valor_do_litro)}
-              onChangeText={handlePriceChange}
-              placeholder="R$ 0,00"
-              keyboardType="decimal-pad"
-            />
-            {errors.valor_do_litro && <ErrorText>{errors.valor_do_litro}</ErrorText>}
-          </InputGroup>
+          {form.arquivo_app && (
+            <ImagePreview source={{ uri: form.arquivo_app }} resizeMode="cover" />
+          )}
 
-          <InputGroup>
-            <Label>Valor Total</Label>
-            <TextInput
-              style={styles.input}
-              value={formatCurrency(form.valor_total)}
-              editable={false}
-            />
-          </InputGroup>
-
-          {/* Comprovante */}
-          <InputGroup>
-            <Label>Comprovante</Label>
-            <BtnFoto onPress={handlePickImage} disabled={loading}>
-              <BtnText>
-                {form.arquivo ? 'Trocar foto' : 'Tirar foto'}
-              </BtnText>
-            </BtnFoto>
-            {form.arquivo && (
-              <Image
-                source={{ uri: form.arquivo.uri }}
-                style={{ width: 100, height: 100, marginTop: 8 }}
-              />
-            )}
-          </InputGroup>
-
-          {/* Botão de envio */}
-          <Btn onPress={handleSubmit} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <BtnText>Cadastrar Abastecimento</BtnText>
-            )}
+          <Btn color="#e67e22" onPress={abrirCamera}>
+            <BtnText>Tirar Foto do Comprovante</BtnText>
           </Btn>
         </Card>
+
+        <Btn color="green" onPress={handleSubmit} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <BtnText>Salvar Abastecimento</BtnText>}
+        </Btn>
       </Container>
-    </KeyboardAvoidingView>
+    </ScrollView>
   );
-
 }
-
-const styles = StyleSheet.create({
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 8
-  },
-
-});

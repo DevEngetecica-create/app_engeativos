@@ -1,60 +1,83 @@
-// src/config/hooks/useConnectionMode.js
-import { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 
-// Definindo uma chave constante para o AsyncStorage
-const MODOO_ONLINE_STORAGE_KEY = '@modoOnline';
+const STORAGE_KEY = "mode_online_user_pref"; // '1' = online preferido, '0' = offline
+
+// 🔹 Global para acesso fora do hook
+let globalShouldUseOnline = false;
+export const getGlobalShouldUseOnline = () => globalShouldUseOnline;
+
+// 🔹 calcula qualidade (%)
+function computeQualityPct(state) {
+  if (!state.isConnected || state.isInternetReachable === false) return 0;
+  if (state.type === "wifi") return 100;
+  if (state.type === "cellular") {
+    switch (state.details?.cellularGeneration) {
+      case "2g": return 20;
+      case "3g": return 40;
+      case "4g": return 70;
+      case "5g": return 90;
+      default: return 30;
+    }
+  }
+  return 50;
+}
 
 export function useConnectionMode() {
-  const [modoOnline, setModoOnline] = useState(true); // Controlado pelo usuário, padrão: online
-  const [isConnected, setIsConnected] = useState(true); // Status real da rede, padrão: conectado
-  const [isReady, setIsReady] = useState(false); // Indica se o hook já carregou as preferências do AsyncStorage
+  const [userWantsOnline, setUserWantsOnline] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+  const [isInternetReachable, setIsInternetReachable] = useState(true);
+  const [type, setType] = useState("unknown");
+  const [details, setDetails] = useState({});
+  const [qualityPct, setQualityPct] = useState(100);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const carregarModo = async () => {
+    (async () => {
       try {
-        const value = await AsyncStorage.getItem(MODOO_ONLINE_STORAGE_KEY);
-        // Se o valor não for '0' (string), assume-se true (online), caso contrário, false (offline)
-        setModoOnline(value !== '0');
-      } catch (e) {
-        console.error('Erro ao carregar modo de conexão do AsyncStorage:', e);
-        // Em caso de erro ao carregar, assume o padrão (true)
-        setModoOnline(true);
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        setUserWantsOnline(raw !== "0"); // default online
       } finally {
-        setIsReady(true); // O hook está pronto após tentar carregar as preferências
+        setReady(true);
       }
-    };
-    
-    carregarModo();
+    })();
 
-    // Listener para o status da rede
-    const unsubscribe = NetInfo.addEventListener(state => {
-      // isInternetReachable pode ser null em algumas plataformas, então a checagem é importante
-      setIsConnected(state.isConnected && state.isInternetReachable !== false);
+    const unsub = NetInfo.addEventListener((state) => {
+      const q = computeQualityPct(state);
+      setIsConnected(!!state.isConnected);
+      setIsInternetReachable(state.isInternetReachable !== false);
+      setType(state.type);
+      setDetails(state.details || {});
+      setQualityPct(q);
     });
 
-    // Função de limpeza do useEffect
-    return () => unsubscribe();
-  }, []); // Array de dependências vazio para rodar apenas uma vez na montagem
+    return () => unsub();
+  }, []);
 
-  const toggleModo = async () => {
-    const novoModo = !modoOnline;
-    setModoOnline(novoModo);
-    try {
-      await AsyncStorage.setItem(MODOO_ONLINE_STORAGE_KEY, novoModo ? '1' : '0');
-    } catch (e) {
-      console.error('Erro ao salvar modo de conexão no AsyncStorage:', e);
-    }
+  const toggleMode = async () => {
+    const next = !userWantsOnline;
+    setUserWantsOnline(next);
+    await AsyncStorage.setItem(STORAGE_KEY, next ? "1" : "0");
   };
 
+  const isQualityGood = qualityPct >= 40;
+  const shouldUseOnline = userWantsOnline && isConnected && isInternetReachable && isQualityGood;
+
+  // mantém valor global atualizado
+  globalShouldUseOnline = shouldUseOnline;
+
   return {
-    modoOnline, // Preferência do usuário: quer usar internet ou não
-    isConnected, // Status real: há conexão de rede e internet?
-    toggleModo, // Função para alternar a preferência
-    // Combinação para saber se o app DEVE tentar conectar à internet
-    // Só tenta conectar se o usuário PERMITIR (modoOnline) E se HOUVER conexão física (isConnected)
-    shouldConnectToInternet: modoOnline && isConnected,
-    isReady, // Propriedade para indicar que o hook está pronto (preferências carregadas)
+    ready,
+    userWantsOnline,
+    shouldUseOnline,
+    isConnected,
+    isInternetReachable,
+    type,
+    details,
+    qualityPct,
+    isQualityGood,
+    toggleMode,
+    setUserWantsOnline,
   };
 }

@@ -1,0 +1,274 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1000" width="1200" height="1000" font-family="'Segoe UI', Roboto, system-ui, sans-serif">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="18%" r="85%">
+      <stop offset="0%" stop-color="#25304a"/>
+      <stop offset="100%" stop-color="#141a29"/>
+    </radialGradient>
+    <linearGradient id="phoneEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c2438"/>
+      <stop offset="100%" stop-color="#0b0e16"/>
+    </linearGradient>
+    <linearGradient id="solBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffd966"/>
+      <stop offset="100%" stop-color="#ff9f0a"/>
+    </linearGradient>
+    <linearGradient id="luaBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5a6cb2"/>
+      <stop offset="100%" stop-color="#2e3a5e"/>
+    </linearGradient>
+    <linearGradient id="alertBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fdecea"/>
+      <stop offset="100%" stop-color="#fbcbc6"/>
+    </linearGradient>
+    <filter id="phoneShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="1000" fill="url(#bg)"/>
+
+  <!-- TÍTULO -->
+  <g transform="translate(600, 80)">
+    <text text-anchor="middle" font-size="22" font-weight="700" fill="#a3aec5" letter-spacing="6">PROPOSTA · CAMADA 2</text>
+    <text text-anchor="middle" y="50" font-size="44" font-weight="900" fill="#fff">Redesign do app</text>
+    <text text-anchor="middle" y="86" font-size="18" fill="#b9c2d6">Remove a possibilidade de erro — não depende mais de o operador "lembrar"</text>
+  </g>
+
+  <!-- ETIQUETAS ANTES / DEPOIS -->
+  <g transform="translate(250, 230)">
+    <rect x="-100" y="-22" width="200" height="36" rx="18" fill="#fdecea" stroke="#e1201d" stroke-width="2"/>
+    <text text-anchor="middle" y="4" font-size="18" font-weight="800" fill="#a51612">❌ ANTES</text>
+  </g>
+
+  <g transform="translate(950, 230)">
+    <rect x="-100" y="-22" width="200" height="36" rx="18" fill="#e6f6ec" stroke="#22b07d" stroke-width="2"/>
+    <text text-anchor="middle" y="4" font-size="18" font-weight="800" fill="#0a7a52">✅ DEPOIS</text>
+  </g>
+
+  <!-- ============ ANTES — Phone 1: Home atual ============ -->
+  <g transform="translate(150, 290)">
+    <rect x="10" y="20" width="200" height="500" rx="32" fill="#000" opacity="0.5" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="200" height="500" rx="30" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="188" height="488" rx="24" fill="#f5f6f8"/>
+    <rect x="76" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <!-- banner -->
+    <rect x="6" y="22" width="188" height="22" fill="#caf3a8"/>
+    <text x="14" y="38" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <!-- Card Olá -->
+    <rect x="14" y="58" width="172" height="60" rx="7" fill="#fff" stroke="#eee"/>
+    <text x="22" y="74" font-size="9" fill="#666">Olá,</text>
+    <text x="22" y="89" font-size="12" font-weight="800" fill="#1e293b">SAMUEL F. DE MELO</text>
+    <rect x="22" y="98" width="60" height="14" rx="3" fill="#007AFF"/>
+    <text x="52" y="108" text-anchor="middle" font-size="8" font-weight="700" fill="#fff">Engeativos</text>
+
+    <!-- Grid de cards (Perfil, Sync, Veículos, SMS) -->
+    <rect x="14" y="130" width="80" height="56" rx="7" fill="#fff" stroke="#eee"/>
+    <circle cx="54" cy="148" r="11" fill="#007AFF" opacity="0.18"/>
+    <text x="54" y="153" text-anchor="middle" font-size="11" fill="#007AFF">👤</text>
+    <text x="54" y="175" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Perfil</text>
+
+    <rect x="106" y="130" width="80" height="56" rx="7" fill="#fff" stroke="#eee"/>
+    <circle cx="146" cy="148" r="11" fill="#ff3807" opacity="0.18"/>
+    <text x="146" y="153" text-anchor="middle" font-size="11" fill="#ff3807">🔄</text>
+    <text x="146" y="175" text-anchor="middle" font-size="8" font-weight="700" fill="#222">Sincronização</text>
+
+    <!-- Botão Veículos da Frota — único, sem distinção abertura/encerramento -->
+    <rect x="14" y="200" width="172" height="80" rx="9" fill="#fff" stroke="#FF9F0A" stroke-width="3"/>
+    <circle cx="100" cy="222" r="16" fill="#FF9F0A" opacity="0.22"/>
+    <text x="100" y="229" text-anchor="middle" font-size="18" fill="#FF9F0A">🚚</text>
+    <text x="100" y="255" text-anchor="middle" font-size="11" font-weight="700" fill="#222">Veículos da Frota</text>
+    <text x="100" y="270" text-anchor="middle" font-size="9" fill="#666">(checklist genérico)</text>
+
+    <!-- Apontamento problema -->
+    <rect x="14" y="296" width="172" height="32" rx="6" fill="#fdecea" stroke="#e1201d"/>
+    <text x="100" y="313" text-anchor="middle" font-size="9" font-weight="800" fill="#a51612">❌ Não diz qual fazer agora</text>
+    <text x="100" y="324" text-anchor="middle" font-size="8" fill="#a51612">Operador esquece de encerrar</text>
+
+    <rect x="14" y="340" width="80" height="50" rx="7" fill="#fff" stroke="#eee"/>
+    <circle cx="54" cy="356" r="11" fill="#0A84FF" opacity="0.18"/>
+    <text x="54" y="361" text-anchor="middle" font-size="11" fill="#0A84FF">🛡</text>
+    <text x="54" y="380" text-anchor="middle" font-size="9" font-weight="700" fill="#222">SMS</text>
+
+    <rect x="106" y="340" width="80" height="50" rx="7" fill="#fff" stroke="#eee"/>
+    <circle cx="146" cy="356" r="11" fill="#5AC8FA" opacity="0.22"/>
+    <text x="146" y="361" text-anchor="middle" font-size="11" fill="#5AC8FA">🤝</text>
+    <text x="146" y="380" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Obras</text>
+  </g>
+
+  <!-- ============ ANTES — Phone 2: Lista de veículos sem distinção ============ -->
+  <g transform="translate(380, 290)">
+    <rect x="10" y="20" width="200" height="500" rx="32" fill="#000" opacity="0.5" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="200" height="500" rx="30" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="188" height="488" rx="24" fill="#f5f6f8"/>
+    <rect x="76" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <rect x="6" y="22" width="188" height="22" fill="#caf3a8"/>
+    <text x="14" y="38" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <!-- Header -->
+    <rect x="6" y="44" width="188" height="32" fill="#fff"/>
+    <text x="100" y="64" text-anchor="middle" font-size="11" font-weight="800" fill="#222">Veículos da Frota</text>
+
+    <!-- Lista de veículos — todos iguais, sem indicar estado -->
+    <g transform="translate(14, 90)">
+      <rect x="0" y="0" width="172" height="42" rx="7" fill="#fff" stroke="#eee"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#222">AC-001</text>
+      <text x="10" y="32" font-size="8" fill="#666">Caminhão Mercedes 2628</text>
+    </g>
+    <g transform="translate(14, 138)">
+      <rect x="0" y="0" width="172" height="42" rx="7" fill="#fff" stroke="#eee"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#222">AC-002</text>
+      <text x="10" y="32" font-size="8" fill="#666">Pickup Hilux</text>
+    </g>
+    <g transform="translate(14, 186)">
+      <rect x="0" y="0" width="172" height="42" rx="7" fill="#fff" stroke="#eee"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#222">AC-003</text>
+      <text x="10" y="32" font-size="8" fill="#666">Trator Massey</text>
+    </g>
+    <g transform="translate(14, 234)">
+      <rect x="0" y="0" width="172" height="42" rx="7" fill="#fff" stroke="#eee"/>
+      <text x="10" y="18" font-size="11" font-weight="700" fill="#222">AC-004</text>
+      <text x="10" y="32" font-size="8" fill="#666">Caminhonete S10</text>
+    </g>
+
+    <!-- Apontamento -->
+    <rect x="14" y="296" width="172" height="44" rx="6" fill="#fdecea" stroke="#e1201d"/>
+    <text x="100" y="313" text-anchor="middle" font-size="9" font-weight="800" fill="#a51612">❌ Todos iguais</text>
+    <text x="100" y="325" text-anchor="middle" font-size="8" fill="#a51612">Não dá pra ver qual está</text>
+    <text x="100" y="335" text-anchor="middle" font-size="8" fill="#a51612">aberto, encerrado, livre</text>
+
+    <text x="100" y="380" text-anchor="middle" font-size="11" font-weight="800" fill="#e1201d">↑ ANTES (atual)</text>
+  </g>
+
+  <!-- ============ DEPOIS — Phone 1: Home com 2 botões ============ -->
+  <g transform="translate(620, 290)">
+    <rect x="10" y="20" width="200" height="500" rx="32" fill="#000" opacity="0.6" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="200" height="500" rx="30" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="188" height="488" rx="24" fill="#f5f6f8"/>
+    <rect x="76" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <rect x="6" y="22" width="188" height="22" fill="#caf3a8"/>
+    <text x="14" y="38" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <!-- Card Olá -->
+    <rect x="14" y="58" width="172" height="48" rx="7" fill="#fff" stroke="#eee"/>
+    <text x="22" y="74" font-size="9" fill="#666">Olá,</text>
+    <text x="22" y="89" font-size="12" font-weight="800" fill="#1e293b">SAMUEL F. DE MELO</text>
+
+    <!-- BANNER DE PENDÊNCIA - novo! -->
+    <rect x="14" y="118" width="172" height="38" rx="7" fill="url(#alertBg)" stroke="#e1201d" stroke-width="1.5"/>
+    <text x="22" y="133" font-size="9" font-weight="800" fill="#a51612">⚠️ TURNO ABERTO</text>
+    <text x="22" y="146" font-size="8" fill="#a51612">AC-001 desde 07:14 · falta encerrar</text>
+
+    <!-- 2 BOTÕES GRANDES (NOVO) -->
+    <rect x="14" y="166" width="80" height="80" rx="9" fill="url(#solBg)"/>
+    <text x="54" y="195" text-anchor="middle" font-size="22">🌅</text>
+    <text x="54" y="215" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">ABRIR</text>
+    <text x="54" y="228" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" opacity="0.9">TURNO</text>
+
+    <rect x="106" y="166" width="80" height="80" rx="9" fill="url(#luaBg)"/>
+    <!-- pulse halo (turno aberto, precisa encerrar) -->
+    <rect x="102" y="162" width="88" height="88" rx="11" fill="none" stroke="#5a6cb2" stroke-width="1.5" opacity="0.4"/>
+    <text x="146" y="195" text-anchor="middle" font-size="22">🌙</text>
+    <text x="146" y="215" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">ENCERRAR</text>
+    <text x="146" y="228" text-anchor="middle" font-size="8" font-weight="700" fill="#fff" opacity="0.9">TURNO</text>
+
+    <!-- Apontamento melhoria -->
+    <rect x="14" y="262" width="172" height="44" rx="6" fill="#e6f6ec" stroke="#22b07d"/>
+    <text x="100" y="278" text-anchor="middle" font-size="9" font-weight="800" fill="#0a7a52">✅ Não dá pra confundir</text>
+    <text x="100" y="291" text-anchor="middle" font-size="8" fill="#0a7a52">Banner lembra o que falta.</text>
+    <text x="100" y="301" text-anchor="middle" font-size="8" fill="#0a7a52">2 botões = 2 ações distintas.</text>
+
+    <!-- Demais cards -->
+    <rect x="14" y="318" width="80" height="50" rx="7" fill="#fff" stroke="#eee"/>
+    <circle cx="54" cy="334" r="11" fill="#007AFF" opacity="0.18"/>
+    <text x="54" y="339" text-anchor="middle" font-size="11" fill="#007AFF">👤</text>
+    <text x="54" y="358" text-anchor="middle" font-size="9" font-weight="700" fill="#222">Perfil</text>
+
+    <rect x="106" y="318" width="80" height="50" rx="7" fill="#fff" stroke="#eee"/>
+    <circle cx="146" cy="334" r="11" fill="#ff3807" opacity="0.18"/>
+    <text x="146" y="339" text-anchor="middle" font-size="11" fill="#ff3807">🔄</text>
+    <text x="146" y="358" text-anchor="middle" font-size="8" font-weight="700" fill="#222">Sincronizar</text>
+  </g>
+
+  <!-- ============ DEPOIS — Phone 2: Lista com cores semafóricas ============ -->
+  <g transform="translate(850, 290)">
+    <rect x="10" y="20" width="200" height="500" rx="32" fill="#000" opacity="0.6" filter="url(#phoneShadow)"/>
+    <rect x="0" y="0" width="200" height="500" rx="30" fill="url(#phoneEdge)" stroke="#2a3550" stroke-width="2"/>
+    <rect x="6" y="6" width="188" height="488" rx="24" fill="#f5f6f8"/>
+    <rect x="76" y="6" width="48" height="13" rx="6" fill="#0b0e16"/>
+
+    <rect x="6" y="22" width="188" height="22" fill="#caf3a8"/>
+    <text x="14" y="38" font-size="9" font-weight="700" fill="#2e3a18">📶 Modo ONLINE</text>
+
+    <rect x="6" y="44" width="188" height="32" fill="#fff"/>
+    <text x="100" y="64" text-anchor="middle" font-size="11" font-weight="800" fill="#222">🌅 ABRIR TURNO</text>
+
+    <!-- Lista de veículos COM CORES -->
+    <!-- Verde = livre -->
+    <g transform="translate(14, 90)">
+      <rect x="0" y="0" width="172" height="44" rx="7" fill="#fff" stroke="#22b07d" stroke-width="1.5"/>
+      <circle cx="11" cy="22" r="5" fill="#22b07d"/>
+      <text x="24" y="18" font-size="11" font-weight="700" fill="#222">AC-001</text>
+      <text x="24" y="32" font-size="8" font-weight="700" fill="#0a7a52">✅ Livre · pode abrir</text>
+    </g>
+    <!-- Laranja = aberto por VOCÊ -->
+    <g transform="translate(14, 142)">
+      <rect x="0" y="0" width="172" height="44" rx="7" fill="#fff5e6" stroke="#ff7639" stroke-width="2"/>
+      <circle cx="11" cy="22" r="5" fill="#ff7639"/>
+      <text x="24" y="18" font-size="11" font-weight="800" fill="#222">AC-002</text>
+      <text x="24" y="32" font-size="8" font-weight="800" fill="#a3530b">🌅 ABERTO POR VOCÊ · encerre!</text>
+    </g>
+    <!-- Vermelho = aberto por outro -->
+    <g transform="translate(14, 194)">
+      <rect x="0" y="0" width="172" height="44" rx="7" fill="#fdecea" stroke="#e1201d" stroke-width="1.5" opacity="0.7"/>
+      <circle cx="11" cy="22" r="5" fill="#e1201d"/>
+      <text x="24" y="18" font-size="11" font-weight="700" fill="#a51612">AC-003</text>
+      <text x="24" y="32" font-size="8" fill="#a51612">🔒 Aberto por João · não toque</text>
+    </g>
+    <!-- Verde -->
+    <g transform="translate(14, 246)">
+      <rect x="0" y="0" width="172" height="44" rx="7" fill="#fff" stroke="#22b07d" stroke-width="1.5"/>
+      <circle cx="11" cy="22" r="5" fill="#22b07d"/>
+      <text x="24" y="18" font-size="11" font-weight="700" fill="#222">AC-004</text>
+      <text x="24" y="32" font-size="8" font-weight="700" fill="#0a7a52">✅ Livre · pode abrir</text>
+    </g>
+
+    <!-- Legenda -->
+    <rect x="14" y="304" width="172" height="68" rx="6" fill="#fff" stroke="#eee"/>
+    <text x="22" y="319" font-size="9" font-weight="800" fill="#222">Legenda das cores:</text>
+    <circle cx="22" cy="335" r="4" fill="#22b07d"/>
+    <text x="34" y="339" font-size="9" fill="#0a7a52">Verde = livre</text>
+    <circle cx="22" cy="350" r="4" fill="#ff7639"/>
+    <text x="34" y="354" font-size="9" fill="#a3530b">Laranja = VOCÊ abriu (encerre!)</text>
+    <circle cx="22" cy="365" r="4" fill="#e1201d"/>
+    <text x="34" y="369" font-size="9" fill="#a51612">Vermelho = outro abriu</text>
+
+    <text x="100" y="395" text-anchor="middle" font-size="11" font-weight="800" fill="#22b07d">↑ DEPOIS (proposto)</text>
+  </g>
+
+  <!-- LISTA DE MELHORIAS -->
+  <g transform="translate(80, 850)">
+    <text font-size="20" font-weight="800" fill="#fff">5 mudanças no app:</text>
+    <text y="38" font-size="14" fill="#b9c2d6">
+      <tspan fill="#ff7639" font-weight="800">1.</tspan> 2 botões grandes na Home (Abrir 🌅 / Encerrar 🌙)
+      &#160;&#160;&#160;
+      <tspan fill="#ff7639" font-weight="800">2.</tspan> Banner persistente de turno aberto
+    </text>
+    <text y="62" font-size="14" fill="#b9c2d6">
+      <tspan fill="#ff7639" font-weight="800">3.</tspan> Cores semafóricas na lista de veículos (verde/laranja/vermelho)
+      &#160;&#160;&#160;
+      <tspan fill="#ff7639" font-weight="800">4.</tspan> Notificação local às 17h
+    </text>
+    <text y="86" font-size="14" fill="#b9c2d6">
+      <tspan fill="#ff7639" font-weight="800">5.</tspan> Renomear "Checklist Abertura/Encerramento" → "Abrir/Encerrar Turno"
+    </text>
+  </g>
+
+  <!-- RODAPÉ -->
+  <text x="600" y="980" text-anchor="middle" font-size="11" fill="#7a85a0" letter-spacing="2">
+    🏗️  ENGETECNICA  ·  ENGEATIVOS  ·  Proposta de redesign
+  </text>
+</svg>

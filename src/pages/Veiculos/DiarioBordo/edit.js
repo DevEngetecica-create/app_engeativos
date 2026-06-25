@@ -1,269 +1,393 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Text, TextInput, Button, Alert, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
-import { useRoute, useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import {
+  ScrollView,
+  Text,
+  Alert,
+  ActivityIndicator,
+  Image,
+  View,
+  StyleSheet,
+  Platform
+} from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { TextInputMask } from 'react-native-masked-text';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import styled from 'styled-components/native';
-import api from '../../../config/api';
+import { executeSql } from '../../../config/database/database';
+import { showToast } from '../../../utils/toast';
+import {
+  integerInputBlockingSeparators,
+  integerInputValue,
+  integerNumberValue,
+  onlyDigits
+} from '../../../utils/numberInput';
+import { nowLocalTimestamp, nowLocalDMYHM, toDMYHM } from '../../../utils/datetime';
 
-const Container = styled.View` padding: 20px; `;
-
-const Input = styled.TextInput`border:1px solid #ccc; border-radius:6px; padding:8px; margin-bottom:12px; text-align-vertical:top;`;
-const Btn = styled.TouchableOpacity`background-color:#1f51fe; padding:12px; border-radius:6px; align-items:center; margin-bottom:12px;`;
-const BtnText = styled.Text`color:#fff; font-weight:bold;`;
-const BtnSalvar = styled.TouchableOpacity`background-color:green; padding:12px; border-radius:6px; align-items:center; margin-bottom:12px;`;
-const Label = styled.Text`font-weight:bold; margin-bottom:4px; color:#333;`;
-const Linha = styled.Text`width:100%; background-color:green;  height: 1px; margin-bottom: 25px`;
-
-
-
-const TextArea = styled.TextInput`border: 1px solid #ccc;
+// =============================
+// 🔹 Styled Components
+// =============================
+const Container = styled.View`
+  flex: 1;
+  padding: 6px;
+  background: #f5f5f5;
+`;
+const Card = styled.View`
+  background-color: #fff;
+  padding: 8px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  elevation: 2;
+`;
+const Label = styled.Text`
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #333;
+`;
+const Input = styled.TextInput`
+  border: 1px solid ${props => (props.error ? '#d9534f' : '#ccc')};
+  border-radius: 6px;
+  padding: ${Platform.OS === 'ios' ? '8px' : '8px'};
+  margin-bottom: 6px;
+  color: #000;
+`;
+const TextArea = styled.TextInput`
+  border: 1px solid #ccc;
   border-radius: 6px;
   padding: 8px;
   margin-bottom: 12px;
-  height: 150px;
+  height: 120px;
   text-align-vertical: top;
+  color: #000;
+`;
+const Btn = styled.TouchableOpacity`
+  background-color: ${props => (props.disabled ? '#999' : props.color || '#1f51fe')};
+  padding: 12px;
+  border-radius: 6px;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+const BtnText = styled.Text`
+  color: #fff;
+  font-weight: bold;
+`;
+const InputGroup = styled.View`
+  margin-bottom: 14px;
+`;
+const Linha = styled.View`
+  width: 100%;
+  height: 1px;
+  background-color: #1f51fe;
+  margin-vertical: 10px;
 `;
 
-export default function DiarioCadastro() {
 
-  const { id_veiculo, id_item } = useRoute().params;
+// =============================
+// 🔹 Principal
+// =============================
+export default function DiarioEdit() {
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState(null);
-  const [items, setItems] = useState([]);
-  const [codigoObra, setCodigoObra] = useState([]);
-  const [formsDiario, setForms] = useState({});
+  const { id } = useRoute().params;
 
-  // Estado do formulário corrigido (removido campo duplicado)
-  const [form, setForm] = useState({
-    horario_inicial: '',
-    horimetro_inicial: '',
-    hodometro_inicial: '',
-    horario_final: '',
-    horimetro_final: '',
-    hodometro_final: '',
-    descricao_atividade: '',
-    leitura_final: '',
-    arquivo: null
-  });
+  const [loading, setLoading] = useState(true);
+  const [valores, setValores] = useState({ tipo_hr: 0, tipo_km: 0 });
+  const [form, setForm] = useState({ descricao_encerramento: '', arquivo: null });
+  const [inputError, setInputError] = useState('');
+  // Display de "Horario Final" em tempo real (atualiza a cada 30s).
+  // No salvamento, o valor final eh capturado novamente para garantir freshness.
+  const [horarioFinalDisplay, setHorarioFinalDisplay] = useState(nowLocalDMYHM());
 
-  //carregar a imagem
-  const handlePickImage = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7
-    });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHorarioFinalDisplay(nowLocalDMYHM());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
-    if (!res.canceled) {
-      setForm({ ...form, arquivo: res.assets[0] });
-    }
-  };
-
-
-  //informações do diário de bordo
-  const fetchItems = async () => {
-    setLoading(true);
-    setErrors(null);
+  // =============================
+  // 🔹 Buscar registro existente
+  // =============================
+  const carregarRegistro = async () => {
     try {
-      const { data } = await api.get(`admin/ativo/veiculo/diario_bordo/show/${id_item}`);
-
-      if (data.registro) {
-        setItems(data.registro);
-        setCodigoObra(data.registro.veiculo?.obra?.codigo_obra || ''); // Acesso correto à obra
-
+      setLoading(true);
+      const res = await executeSql(`SELECT * FROM veiculos_diario_bordo WHERE id = ?`, [id]);
+      if (res.length > 0) {
+        const registro = res[0];
         setForm({
-          ...form,
-          horario_inicial: data.registro.horario_inicial || '',
-          horimetro_inicial: data.registro.horimetro_inicial || '',
-          hodometro_inicial: data.registro.hodometro_inicial || '',
-          horario_final: data.registro.horario_final || '',
-          horimetro_final: data.registro.horimetro_final || '',
-          hodometro_final: data.registro.hodometro_final || '',
-          descricao_atividade: data.registro.descricao_atividade || '',
-          leitura_final: data.registro.leitura_final || '',
-          arquivo: data.registro.arquivo || null
+          ...registro,
+          horario_inicial: formatarDataHora(registro.horario_inicial),
+          horario_final: registro.horario_final || '',
+          horimetro_inicial: integerInputValue(registro.horimetro_inicial),
+          horimetro_final: integerInputValue(registro.horimetro_final),
+          hodometro_inicial: integerInputValue(registro.hodometro_inicial),
+          hodometro_final: integerInputValue(registro.hodometro_final),
+          descricao_atividade: registro.descricao_atividade || '',
+          descricao_encerramento: registro.descricao_encerramento || '',
+          arquivo: registro.arquivo_app || registro.arquivo || null,
         });
-      }
-    } catch (err) {
-      setErrors([err.message]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
+        const veiculoRes = await executeSql(`SELECT tipo_hr, tipo_km, tipo FROM veiculos WHERE id = ?`, [registro.id_veiculo]);
+        let tipo_hr = veiculoRes[0]?.tipo_hr || 0;
+        let tipo_km = veiculoRes[0]?.tipo_km || 0;
 
-  const saveItem = async () => {
-    setLoading(true);
-    setErrors(null);
-
-    // Cria FormData com os dados do estado 'form'
-    const formData = new FormData();
-    formData.append('horario_inicial', form.horario_inicial);
-    formData.append('horimetro_inicial', form.horimetro_inicial || '');
-    formData.append('hodometro_inicial', form.hodometro_inicial || '');
-    formData.append('descricao_atividade', form.descricao_atividade);
-    formData.append('horario_final', form.horario_final || '');
-    formData.append('leitura_final', form.leitura_final || '');
-    formData.append('horimetro_final', form.horimetro_final || '');
-    formData.append('hodometro_final', form.hodometro_final || '');
-
-    // Adiciona a imagem se existir
-    if (form.arquivo && form.arquivo.uri) {
-      formData.append('arquivo', {
-        uri: form.arquivo.uri,
-        name: form.arquivo.uri.split('/').pop(),
-        type: form.arquivo.type || 'image/jpeg',
-      });
-    }
-
-    const token = await AsyncStorage.getItem('@token');
-    try {
-      const headers = {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      };
-
-      // Usar PUT para atualização
-      await api.post( `admin/ativo/veiculo/diario_bordo/update/${id_item}`,
-        formData,
-        { headers }
-      );
-
-      Alert.alert('Sucesso', 'Registro atualizado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('VeiculosDiarioBordo', { id: id_veiculo })
+        if (!tipo_km && !tipo_hr) {
+          const isMaquina = veiculoRes[0]?.tipo == 4;
+          tipo_hr = isMaquina ? 1 : 0;
+          tipo_km = !isMaquina ? 1 : 0;
         }
-      ]);
-
-    } catch (error) {
-      // Tratamento melhorado de erros
-      const errorMessage = error.response?.data?.message || 'Erro ao atualizar registro';
-      Alert.alert('Erro', errorMessage);
-      console.error('Erro no update:', error);
+        setValores({ tipo_hr, tipo_km });
+      } else {
+        Alert.alert('Erro', 'Registro não encontrado.');
+        navigation.goBack();
+      }
+    } catch (e) {
+      console.error('Erro ao carregar diário:', e);
+      Alert.alert('Erro', 'Falha ao carregar o registro.');
     } finally {
       setLoading(false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchItems();
-    }, [id_veiculo])
-  );
+  useEffect(() => {
+    carregarRegistro();
+  }, [id]);
 
+  // =============================
+  // 🔹 Tirar foto (somente câmera)
+  // =============================
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão negada', 'Conceda acesso à câmera para tirar fotos.');
+      return;
+    }
 
-  if (loading && !items.length) {
-    return <ActivityIndicator style={styles.loader} size="large" />;
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+    if (!res.canceled && res.assets?.length) {
+      setForm({ ...form, arquivo: res.assets[0].uri });
+    }
+  };
+
+  // =============================
+  // 🔹 Funções auxiliares
+  // =============================
+  function parseDataHoraBR(dataStr) {
+    if (!dataStr) return null;
+    const [dataPart, horaPart] = dataStr.split(' ');
+    if (!dataPart || !horaPart) return null;
+    const [dia, mes, ano] = dataPart.split('/');
+    const [hora, minuto] = horaPart.split(':');
+    if (ano && mes && dia && hora && minuto) {
+      return new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora), Number(minuto), 0);
+    }
+    const data = new Date(dataStr);
+    return Number.isNaN(data.getTime()) ? null : data;
   }
 
+  function calcularHorasTrabalhadasMinutos(inicio, fim) {
+    const dataInicio = parseDataHoraBR(inicio);
+    const dataFim = parseDataHoraBR(fim);
+    if (!dataInicio || !dataFim) return 0;
+    const diffMs = dataFim.getTime() - dataInicio.getTime();
+    if (diffMs <= 0) return 0;
+    return Math.floor(diffMs / 60000);
+  }
+  const formatarDataHora = iso => {
+    try {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const dia = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const ano = d.getFullYear();
+      const hora = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dia}/${mes}/${ano} ${hora}:${min}`;
+    } catch {
+      return iso;
+    }
+  };
 
+  // =============================
+  // 🔹 Atualizar registro
+  // =============================
+
+  const handleUpdate = async () => {
+    if (inputError) {
+      Alert.alert('Atenção', 'Corrija os valores antes de salvar.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Captura o horario final AGORA (timezone America/Sao_Paulo).
+      // Salva tanto o display (DD/MM/YYYY HH:mm) quanto o ISO (YYYY-MM-DD HH:mm:ss)
+      // — o display vai para horario_final, o ISO entra em updated_at/data_sincronizacao.
+      const horarioFinalISO = nowLocalTimestamp();
+      const horarioFinalBR = nowLocalDMYHM();
+      const horasTrabalhadas = calcularHorasTrabalhadasMinutos(form.horario_inicial, horarioFinalBR);
+
+      await executeSql(
+        `UPDATE veiculos_diario_bordo
+         SET horario_final = ?, horimetro_final = ?, hodometro_final = ?, descricao_encerramento = ?, horas_trabalhadas_minutos = ?, arquivo_app = ?, ciclo_status = 'ENCERRADO', sync_status = 0, updated_at = ?
+         WHERE id = ?`,
+        [
+          horarioFinalISO,
+          onlyDigits(form.horimetro_final) || null,
+          onlyDigits(form.hodometro_final) || null,
+          form.descricao_encerramento,
+          horasTrabalhadas,
+          form.arquivo,
+          horarioFinalISO,
+          id
+        ]
+      );
+
+      showToast('✅ Diário encerrado com sucesso!', 'success');
+      navigation.goBack();
+    } catch (e) {
+      console.error('Erro ao encerrar diário:', e);
+      showToast('❌ Falha ao encerrar o diário.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =============================
+  // 🔹 Interface
+  // =============================
+  if (loading) {
+    return (
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="green" />
+      </Container>
+    );
+  }
+
+  const isHr = valores.tipo_hr == 1;
+  const isKm = valores.tipo_km == 1;
 
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
       <Container>
-        <Text style={{ fontWeight: 'bold', marginBottom: 12 }}>
-          Veículo: {items.veiculo?.prefixo} | Obra: {items.obra?.codigo_obra}
+        <Text style={{ fontWeight: 'bold', marginBottom: 10, color: '#333' }}>
+          Encerrar Diário de Bordo #{form.id}
         </Text>
-
         <Linha />
 
-        {items[0]?.veiculo?.tipo == 4 ? (
-          <>
-            <Text>Horímetro Inicial:</Text>
+        {/* ===================================== */}
+        {isHr && (
+          <Card style={{ borderLeftWidth: 6, borderLeftColor: '#e67e22', backgroundColor: '#fff9f2' }}>
+            <Label>Horímetro Inicial</Label>
             <Input
+              editable={false}
               value={form.horimetro_inicial}
-            onChangeText={(text) => setForm({ ...form, horimetro_inicial: text })}
+              style={{ backgroundColor: '#eee' }}
             />
-          </>
-
-        ) : (
-          <>
-            <Text>Hodômetro inicial:</Text>
-            <Input
-              value={form.hodometro_inicial}
-              onChangeText={(text) => setForm({ ...form, hodometro_inicial: text })}
-            />
-          </>
-        )}
-
-        <Text style={{ color: 'red' }}>Horário inicial:</Text>
-        <TextInputMask
-          type={'custom'}
-          options={{ mask: '99:99' }}
-          value={form.horario_inicial}
-          onChangeText={(text) => setForm({ ...form, horario_inicial: text })} /* onChangeText={(text) => setItems({ ...items, horario_inicial: text }) } */
-          style={{
-            borderWidth: 1,
-            borderColor: '#ccc',
-            borderRadius: 6,
-            padding: 8,
-            marginBottom: 12
-          }}
-          keyboardType="numeric"
-        />
-
-        <Text>Descrição da Atividade:</Text>
-        <TextArea value={form.descricao_atividade}
-          onChangeText={(text) => setForm({ ...form, descricao_atividade: text })}
-        />
-
-
-        <Text style={{ color: 'red' }}>Horário Final:</Text>
-        <TextInputMask
-          type={'custom'}
-          options={{ mask: '99:99' }}
-          value={form.horario_final}
-          onChangeText={(text) => setForm({ ...form, horario_final: text })}
-          style={{
-            borderWidth: 1,
-            borderColor: '#ccc',
-            borderRadius: 6,
-            padding: 8,
-            marginBottom: 12
-          }}
-          keyboardType="numeric"
-        />
-
-        {items[0]?.tipo == 4 ? (
-          <>
-            <Text>Horímetro final:</Text>
+            <Label>Horímetro Final</Label>
             <Input
               value={form.horimetro_final}
-              onChangeText={(text) => setForm({ ...form, horimetro_final: text })}
+              onChangeText={t => {
+                const v = integerInputBlockingSeparators(t, form.horimetro_final);
+                setForm({ ...form, horimetro_final: v });
+                if (integerNumberValue(v, 0) < integerNumberValue(form.horimetro_inicial, 0)) {
+                  setInputError('⚠️ O horímetro final não pode ser menor que o inicial.');
+                } else {
+                  setInputError('');
+                }
+              }}
+              keyboardType="numeric"
             />
-          </>
-        ) : (
-          <>
-            <Text>Hodômetro final:</Text>
+            {inputError ? <Text style={styles.errorText}>{inputError}</Text> : null}
+          </Card>
+        )}
+        
+        {isKm && (
+          <Card style={{ borderLeftWidth: 6, borderLeftColor: '#3498db', backgroundColor: '#f4f9ff' }}>
+            <Label>Hodômetro Inicial</Label>
+            <Input editable={false} value={form.hodometro_inicial} style={{ backgroundColor: '#eee' }} />
+            <Label>Hodômetro Final</Label>
             <Input
               value={form.hodometro_final}
-              oonChangeText={(text) => setForm({ ...form, hodometro_final: text })}
+              onChangeText={t => {
+                const v = integerInputBlockingSeparators(t, form.hodometro_final);
+                setForm({ ...form, hodometro_final: v });
+                if (integerNumberValue(v, 0) < integerNumberValue(form.hodometro_inicial, 0)) {
+                  setInputError('⚠️ A quilometragem final não pode ser menor que a inicial.');
+                } else {
+                  setInputError('');
+                }
+              }}
+              keyboardType="numeric"
             />
-          </>
+            {inputError ? <Text style={styles.errorText}>{inputError}</Text> : null}
+          </Card>
         )}
 
-        <Label>Imagem</Label>
-        {form.arquivo?.uri && <Image source={{ uri: form.arquivo.uri }} style={{ width: 100, height: 100, marginVertical: 10 }} />}
-        <Btn onPress={handlePickImage}>
-          <BtnText>{form.arquivo ? 'Trocar imagem' : 'Selecionar imagem'}</BtnText>
+        {/* Horários */}
+        <Card>
+          <Label>Horário Inicial</Label>
+          <Input editable={false} value={form.horario_inicial} style={{ backgroundColor: '#eee' }} />
+          <Label>Horário Final (automatico)</Label>
+          <Input
+            editable={false}
+            value={horarioFinalDisplay}
+            style={{ backgroundColor: '#eee' }}
+          />
+          <Text style={{ fontSize: 11, color: '#666', marginTop: -4, marginBottom: 8 }}>
+            O horario final eh capturado automaticamente ao salvar (fuso de Brasilia).
+          </Text>
+        </Card>
+
+        {/* Descrição Abertura */}
+        <Card>
+          <Label>Descrição da Atividade (Abertura)</Label>
+          <TextArea
+            editable={false}
+            multiline
+            numberOfLines={4}
+            value={form.descricao_atividade}
+            style={{ backgroundColor: '#eee' }}
+          />
+        </Card>
+
+        {/* Descrição Encerramento */}
+        <Card>
+          <Label>Observação de Encerramento</Label>
+          <TextArea
+            multiline
+            numberOfLines={4}
+            value={form.descricao_encerramento}
+            onChangeText={v => setForm({ ...form, descricao_encerramento: v })}
+            placeholder="Digite os detalhes do encerramento..."
+          />
+        </Card>
+
+        {/* Foto */}
+        {form.arquivo ? (
+          <Image
+            source={{ uri: form.arquivo }}
+            style={{ width: '100%', height: 200, borderRadius: 8, marginBottom: 12 }}
+          />
+        ) : null}
+
+        <Btn color="darkorange" onPress={handleTakePhoto}>
+          <BtnText>{form.arquivo ? 'Tirar outra foto' : 'Tirar foto'}</BtnText>
         </Btn>
 
-        <BtnSalvar onPress={saveItem} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <BtnText>Salvar tudo</BtnText>}
-        </BtnSalvar>
+        <Btn color="green" onPress={handleUpdate} disabled={!!inputError || loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <BtnText>Encerrar Diário</BtnText>}
+        </Btn>
       </Container>
     </ScrollView>
   );
-
 }
 
-
 const styles = StyleSheet.create({
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  picker: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, marginBottom: 12 },
-  thumb: { width: 80, height: 80, marginBottom: 8 }
+  maskInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 12,
+  },
+  errorText: { color: '#d9534f', fontSize: 12, marginTop: 2, marginBottom: 8 },
 });

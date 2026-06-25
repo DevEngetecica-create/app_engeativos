@@ -1,64 +1,72 @@
-// .src/contexts/network.js
+import React, { createContext, useState, useEffect, useContext, useMemo } from "react";
+import NetInfo from "@react-native-community/netinfo";
+import { setConnectionSnapshot, computeQualityPct } from "../config/net/connectionSnapshot";
 
-import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
-import NetInfo from '@react-native-community/netinfo';
-
-// 1. Criando o "quadro de avisos" (o Contexto)
 const NetworkContext = createContext();
 
-// 2. Criando o componente que gerencia e provê a informação (o Provedor)
+// 🔹 Estado global compartilhado (acessado fora de componentes)
+let globalNetworkStatus = { isOffline: false, isOnline: true };
+let externalForceOffline = false; // Modo manual (forçado via banner ou login)
+
+export const forceGlobalOfflineMode = (value) => {
+  externalForceOffline = value;
+  globalNetworkStatus = { isOffline: value, isOnline: !value };
+};
+
+export const getGlobalNetworkStatus = () => globalNetworkStatus;
+
 const NetworkProvider = ({ children }) => {
-  // Estado para saber se estamos offline (seja por falta de conexão ou forçado)
-  const [isOffline, setOffline] = useState(false);
-  
-  // Estado para forçar o modo offline manualmente (útil para testes)
-  const [isForcedOffline, setForcedOffline] = useState(false);
+  const [isDeviceOffline, setDeviceOffline] = useState(false);
+  const [isForcedOffline, setForcedOffline] = useState(externalForceOffline);
 
+  // 📡 Monitora mudanças automáticas de rede
   useEffect(() => {
-    // Adiciona um "ouvinte" que avisa sempre que o estado da conexão muda
-    const unsubscribe = NetInfo.addEventListener(state => {
-      // O estado é considerado offline se a internet não estiver acessível
-      // 'state.isConnected' diz se há uma conexão (Wi-Fi, 4G), mas 
-      // 'state.isInternetReachable' é mais confiável, pois testa se realmente há acesso à internet.
+    const unsubscribe = NetInfo.addEventListener((state) => {
       const offline = !(state.isConnected && state.isInternetReachable);
-      setOffline(offline);
-    });
+      const qualityPct = computeQualityPct(state);
 
-    // Função de limpeza: remove o "ouvinte" quando o componente é desmontado
-    return () => {
-      unsubscribe();
-    };
+      // Atualiza snapshot global
+      setConnectionSnapshot({
+        isConnected: state.isConnected,
+        isInternetReachable: state.isInternetReachable,
+        type: state.type,
+        details: state.details,
+        qualityPct,
+      });
+
+      setDeviceOffline(offline);
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Função para permitir que outras partes do app forcem o modo offline
+  // 🔘 Força modo offline manual (usado via banner/login)
   const forceOfflineMode = (value) => {
     setForcedOffline(value);
+    forceGlobalOfflineMode(value);
   };
 
-  // O valor final que será compartilhado: estamos offline se a conexão caiu OU se foi forçado.
-  // 'useMemo' otimiza a performance, recalculando o valor apenas quando uma das dependências muda.
-  const networkStatus = useMemo(() => isOffline || isForcedOffline, [isOffline, isForcedOffline]);
+  // 🧠 Lógica de prioridade: modo forçado > NetInfo
+  const isOffline = useMemo(() => (isForcedOffline ? true : isDeviceOffline), [isDeviceOffline, isForcedOffline]);
+  const isOnline = !isOffline;
+
+  // Atualiza estado global sempre que mudar
+  globalNetworkStatus = { isOffline, isOnline };
+
+  // Log de diagnóstico  // Silenciado para evitar poluição visual no terminal
+  // console.log(`[Net] ${isOffline ? "OFFLINE" : "ONLINE"} (forçado: ${isForcedOffline})`);
 
   return (
-    <NetworkContext.Provider 
-      value={{ 
-        networkStatus, // O estado combinado (true se offline, false se online)
-        forceOfflineMode // A função para forçar o modo offline
-      }}
-    >
+    <NetworkContext.Provider value={{ isOffline, isOnline, forceOfflineMode }}>
       {children}
     </NetworkContext.Provider>
   );
 };
 
-// 3. Criando a "ferramenta" para ler a informação (o Hook)
+// Hook
 const useNetwork = () => {
   const context = useContext(NetworkContext);
-  if (context === undefined) {
-    throw new Error('useNetwork deve ser usado dentro de um NetworkProvider');
-  }
+  if (!context) throw new Error("useNetwork deve ser usado dentro de um NetworkProvider");
   return context;
 };
 
-// Exportando as peças para que outros arquivos possam usá-las
 export { NetworkProvider, useNetwork };

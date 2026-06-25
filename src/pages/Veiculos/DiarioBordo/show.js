@@ -1,230 +1,162 @@
-import React, { useState, useCallback } from 'react';
-import { 
+import React, { useEffect, useState } from 'react';
+import {
+  ScrollView,
+  View,
+  Text,
+  StyleSheet,
   ActivityIndicator,
-  RefreshControl,
   Image,
-  Linking 
 } from 'react-native';
-import { useRoute, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import styled from 'styled-components/native';
-import api from '../../../config/api';
+import { db, executeSql } from '../../../config/database/database';
 
-const Container = styled.ScrollView`
+// ============================
+// 🔹 Styled Components
+// ============================
+const Container = styled.View`
   flex: 1;
-  padding: 16px;
-  background-color: #f5f5f5;
+  background: #f5f5f5;
+  padding: 10px;
 `;
-
 const Card = styled.View`
   background-color: #fff;
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 10px;
   border-radius: 8px;
   elevation: 2;
+  margin-bottom: 12px;
+  border-left-width: 6px;
+  border-left-color: ${props => (props.tipo === 4 ? '#e67e22' : '#3498db')};
 `;
-
-const SectionTitle = styled.Text`
-  font-size: 18px;
-  font-weight: bold;
-  color: #e67e22;
-  margin-vertical: 10px;
-`;
-
-const DetailRow = styled.View`
-  flex-direction: row;
-  justify-content: space-between;
-  margin-bottom: 8px;
-`;
-
 const Label = styled.Text`
   font-weight: bold;
   color: #333;
-  width: 40%;
+  margin-bottom: 4px;
 `;
-
 const Value = styled.Text`
-  color: #555;
-  width: 60%;
-  text-align: right;
+  color: #000;
+  margin-bottom: 8px;
 `;
-
-const ErrorText = styled.Text`
-  color: #dc3545;
-  text-align: center;
-  margin: 20px;
-`;
-
-const BackButton = styled.TouchableOpacity`
-  margin-top: 20px;
-  padding: 12px;
-  background: #1f51fe;
-  border-radius: 6px;
-  align-items: center;
-`;
-
-const BackText = styled.Text`
-  color: #fff;
+const SyncText = styled.Text`
+  color: green;
   font-weight: bold;
+  margin-bottom: 12px;
+  text-align: center;
 `;
 
-const Divider = styled.View`
-  height: 1px;
-  background-color: #e67e22;
-  margin-vertical: 12px;
-`;
-
-const VehicleImage = styled.Image`
-  width: 100%;
-  height: 200px;
-  border-radius: 8px;
-  margin-vertical: 10px;
-`;
-
-export default function DiarioCadastro() {
-  const { id_item } = useRoute().params;
-  const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+export default function DiarioDetalhes() {
+  const { id } = useRoute().params;
   const [registro, setRegistro] = useState(null);
-  
-  const baseImageUrl = 'https://sga-engeativos.com.br/imagens/veiculos';
+  const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchDetalhes = async () => {
+    setLoading(true);
     try {
-      setError(null);
-      const { data } = await api.get(`admin/ativo/veiculo/diario_bordo/show/${id_item}`);
-      
-      if (!data?.registro) {
-
-        throw new Error('Registro não encontrado');
-      }
-
-      setRegistro(data.registro);
-    } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      const res = await executeSql(`SELECT * FROM veiculos_diario_bordo WHERE id = ?`, [id]);
+      if (res.length > 0) setRegistro(res[0]);
+    } catch (e) {
+      console.error('Erro ao carregar detalhes do diário:', e);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [id_item])
-  );
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
-
-  const renderContent = () => (
-    <Card>
-      <SectionTitle>Dados do Diário</SectionTitle>
-      
-      <DetailRow>
-        <Label>Horário Inicial:</Label>
-        <Value>{registro.horario_inicial} hrs</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Horário Final:</Label>
-        <Value>{registro.horario_final} hrs</Value>
-      </DetailRow>
-
-      <Divider />
-
-      {registro.veiculo?.tipo == 4 ? (
-        <>
-          <DetailRow>
-            <Label>Horímetro Inicial:</Label>
-            <Value>{registro.horimetro_inicial} hrs</Value>
-          </DetailRow>
-          <DetailRow>
-            <Label>Horímetro Final:</Label>
-            <Value>{registro.horimetro_final} hrs</Value>
-          </DetailRow>
-        </>
-      ) : (
-        <>
-          <DetailRow>
-            <Label>Hodômetro Inicial:</Label>
-            <Value>{registro.hodometro_inicial} km</Value>
-          </DetailRow>
-          <DetailRow>
-            <Label>Hodômetro Final:</Label>
-            <Value>{registro.hodometro_final} km</Value>
-          </DetailRow>
-        </>
-      )}
-
-      <Divider />
-
-      <DetailRow style={{ alignItems: 'flex-start' }}>
-        <Label>Descrição:</Label>
-        <Value style={{ textAlign: 'left' }}>{registro.descricao_atividade}</Value>
-      </DetailRow>
-
-      <SectionTitle>Veículo</SectionTitle>
-
-      {registro.veiculo?.imagem && (
-        <VehicleImage
-          source={
-                registro.veiculo?.imagem
-                  ? { uri: `${baseImageUrl}/${registro.id_veiculo}/${registro.veiculo?.imagem}` }
-                  : require('../../../../assets/no-photos.png')
-              }
-          resizeMode="contain"
-        />
-      )}
-      <DetailRow>
-        <Label>Prefixo:</Label>
-        <Value>{registro.veiculo?.prefixo || 'N/A'}</Value>
-      </DetailRow>
-
-      <SectionTitle>Obra</SectionTitle>
-      <DetailRow>
-        <Label>Código:</Label>
-        <Value>{registro.obra?.codigo_obra || 'N/A'}</Value>
-      </DetailRow>
-    </Card>
-  );
+  useEffect(() => {
+    fetchDetalhes();
+  }, [id]);
 
   if (loading) {
     return (
-      <Container contentContainerStyle={{ flex: 1, justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#e67e22" />
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="green" />
       </Container>
     );
   }
 
-  if (error) {
+  if (!registro) {
     return (
-      <Container contentContainerStyle={{ flex: 1, justifyContent: 'center' }}>
-        <ErrorText>Erro: {error}</ErrorText>
-        <BackButton onPress={fetchData}>
-          <BackText>Tentar novamente</BackText>
-        </BackButton>
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#999' }}>Diário não encontrado.</Text>
       </Container>
     );
   }
+
+  const isMaquina = !!registro.horimetro_inicial;
 
   return (
-    <Container
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={['#e67e22']}
-        />
-      }
-    >
-      {registro && renderContent()}
-      <BackButton onPress={() => navigation.goBack()}>
-        <BackText>Voltar</BackText>
-      </BackButton>
-    </Container>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <Container>
+        {registro.sync_status == 1 && (
+          <SyncText>✅ Diário de bordo sincronizado</SyncText>
+        )}
+
+        <Card tipo={isMaquina ? 4 : 1}>
+          <Text style={styles.titulo}>
+            {isMaquina ? '⚙️ Horímetro' : '🚗 Quilometragem'}
+          </Text>
+
+          {isMaquina ? (
+            <>
+              <Label>Horímetro Inicial</Label>
+              <Value>{registro.horimetro_inicial || '-'}</Value>
+
+              <Label>Horímetro Final</Label>
+              <Value>{registro.horimetro_final || '-'}</Value>
+            </>
+          ) : (
+            <>
+              <Label>Hodômetro Inicial</Label>
+              <Value>{registro.hodometro_inicial || '-'}</Value>
+
+              <Label>Hodômetro Final</Label>
+              <Value>{registro.hodometro_final || '-'}</Value>
+            </>
+          )}
+        </Card>
+
+        <Card>
+          <Text style={styles.titulo}>🕒 Data e Horários</Text>
+          <Label>Data de Cadastro</Label>
+          <Value>{registro.data_cadastro}</Value>
+
+          <Label>Horário Inicial</Label>
+          <Value>{registro.horario_inicial}</Value>
+
+          <Label>Horário Final</Label>
+          <Value>{registro.horario_final}</Value>
+        </Card>
+
+        <Card>
+          <Text style={styles.titulo}>📝 Atividade</Text>
+          <Label>Descrição</Label>
+          <Value>{registro.descricao_atividade || 'Sem descrição'}</Value>
+        </Card>
+
+        {registro.arquivo ? (
+          <Card>
+            <Text style={styles.titulo}>📷 Imagem</Text>
+            <Image
+              source={{ uri: registro.arquivo }}
+              style={{
+                width: '100%',
+                height: 250,
+                borderRadius: 10,
+                marginTop: 8,
+              }}
+              resizeMode="cover"
+            />
+          </Card>
+        ) : null}
+      </Container>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  titulo: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#333',
+  },
+});

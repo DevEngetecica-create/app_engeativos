@@ -1,9 +1,13 @@
+// src/routes/routes.js
+
 import React from 'react';
 import { Text, View, Image, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from '../contexts/auth';
 import { useNetwork } from '../contexts/network';
+
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
 import Upload from '../pages/Configuracoes/upload';
 import Download from '../pages/Configuracoes/download';
@@ -14,6 +18,8 @@ import NewUser from '../pages/NewUser';
 import RecoverPassword from '../pages/RecoverPassword';
 import VerifyKey from '../pages/VerifyKey';
 import Perfil from '../pages/Usuarios/Perfil/index';
+import DadosAcessoIndex from '../pages/Usuarios/DadosAcesso/index';
+import SchemaTool from '../pages/Configuracoes/SchemaTool';
 
 import Home from '../pages/Home';
 import Veiculos from '../pages/Veiculos';
@@ -35,10 +41,14 @@ import CreateChecklistServicos from '../pages/Veiculos/ChecklistFrota/Servicos/c
 import EditChecklistServicos from '../pages/Veiculos/ChecklistFrota/Servicos/edit';
 import ShowChecklistServicos from '../pages/Veiculos/ChecklistFrota/Servicos/show';
 
-import HomeAlugados from '../pages/VeiculosAlugados';
-import ChecklistAlugados from '../pages/VeiculosAlugados/Checklist';
-import ChecklistCreate from '../pages/VeiculosAlugados/Checklist/create';
-import ChecklistDetalhesAlugados from '../pages/VeiculosAlugados/Checklist/show';
+import ChecklistIndex from '../pages/VeiculosAlugados/index';
+import ConsultaPlaca from '../pages/VeiculosAlugados/ConsultaPlaca';
+import ChecklistRetirada from '../pages/VeiculosAlugados/ChecklistRetirada';
+import ChecklistDevolucao from '../pages/VeiculosAlugados/ChecklistDevolucao';
+import ChecklistCreate from '../pages/VeiculosAlugados/create';
+
+import SMSRoutes from './SMS.routes';
+
 
 import SincronizarUsuarios from '../components/SincronizarUsuarios';
 
@@ -47,44 +57,37 @@ const Stack = createNativeStackNavigator();
 // Componente que aparece em todas as telas no header
 function HeaderRight() {
   const { authData, signOut } = useAuth();
-  const avatarUri = authData?.user?.avatarUrl;
+  const avatarUri = authData?.user?.avatarUrl ?? null;
 
-  // networkStatus = true → offline | false → online
-  const { networkStatus: isOffline, forceOfflineMode } = useNetwork();
-  const modoOnline = !isOffline;
+  const { isOnline, isOffline, isForcedOffline, forceOfflineMode } = useNetwork();
 
   const toggleModo = () => {
-    forceOfflineMode(!isOffline);
+    if (isForcedOffline) {
+      // voltar para o estado real do device
+      forceOfflineMode(false);
+    } else {
+      // força offline mesmo que o device esteja conectado
+      forceOfflineMode(true);
+    }
   };
 
-  return (
-    <View style={styles.headerRight}>
-      <View style={styles.switchContainer}>
-        <Switch
-          value={modoOnline}
-          onValueChange={toggleModo}
-          thumbColor={modoOnline ? '#4CAF50' : '#f44336'}
-          trackColor={{ false: '#ccc', true: '#81C784' }}
-        />
-        <Text style={[styles.statusText, { color: modoOnline ? '#4CAF50' : '#f44336' }]}>          
-          {modoOnline ? 'on-line' : 'off-line'}
-        </Text>
-      </View>
+  const navigation = useNavigation();
+  /* return (
 
-      <Image
-        source={
-          avatarUri
-            ? { uri: avatarUri }
-            : require('../../assets/icone.png')
-        }
-        style={styles.avatar}
-      />
+    <View style={styles.headerRight}>
+      <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.homeBpotton}>
+        <MaterialCommunityIcons name="home" size={24} color="#333" />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.homeBpotton}>
+        <MaterialCommunityIcons name="auto-upload" size={24} color="#333" />
+      </TouchableOpacity>
       <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
         <MaterialCommunityIcons name="logout" size={24} color="#333" />
       </TouchableOpacity>
     </View>
-  );
+  ); */
 }
+
 
 export default function Routes() {
   const { isAuthenticated, loading } = useAuth();
@@ -99,12 +102,15 @@ export default function Routes() {
       }}
     >
       {isAuthenticated ? (
-        <>          
-          <Stack.Screen name="Home" component={Home} options={{ title: 'Dashboard' }} />
+        <>
+          <Stack.Screen name="Home" component={Home} options={{ title: 'Dashboard', headerShown: false }} />
           <Stack.Screen name="Upload" component={Upload} options={{ title: 'Enviar Dados' }} />
           <Stack.Screen name="Download" component={Download} options={{ title: 'Download' }} />
           <Stack.Screen name="Construction" component={Construction} options={{ title: 'Em construção' }} />
           <Stack.Screen name="Perfil" component={Perfil} options={{ title: 'Perfil' }} />
+          <Stack.Screen name="SchemaTool" component={SchemaTool} options={{ title: 'Ferramenta de Migração' }} />
+          
+          <Stack.Screen name="DadosAcessoIndex" component={DadosAcessoIndex} options={{ title: 'Alterar Senha' }} />
 
           <Stack.Screen name="Veiculos" component={Veiculos} options={{ title: 'Veículos' }} />
           <Stack.Screen name="VeiculosDetalhes" component={VeiculosDetalhes} options={{ title: 'Detalhes do Veículo' }} />
@@ -126,12 +132,24 @@ export default function Routes() {
           <Stack.Screen name="EditChecklistServicos" component={EditChecklistServicos} options={{ title: 'Editar Checklist' }} />
           <Stack.Screen name="ShowChecklistServicos" component={ShowChecklistServicos} options={{ title: 'Detalhes do Checklist' }} />
 
-          <Stack.Screen name="HomeAlugados" component={HomeAlugados} options={{ title: 'Veículos Alugados' }} />
-          <Stack.Screen name="ChecklistAlugados" component={ChecklistAlugados} options={{ title: 'Checklist Veículos Alugados' }} />
-          <Stack.Screen name="ChecklistCreateAlugados" component={ChecklistCreate} options={{ title: 'Cadastro Checklist' }} />
-          <Stack.Screen name="ChecklistDetalhesAlugados" component={ChecklistDetalhesAlugados} options={{ title: 'Checklist Detalhes' }} />
+          <Stack.Screen
+            name="ChecklistIndex" component={ChecklistIndex} options={{
+              title: 'Checklists de Veículos', headerRight: () => (<TouchableOpacity style={{ marginRight: 15 }}
+                onPress={() => navigation.navigate('ChecklistCreate')} >
+                <MaterialIcons name="add-circle" size={26} color="#fff" />
+              </TouchableOpacity>
+              ),
+            }}
+          />
 
+          <Stack.Screen name="ConsultaPlaca" component={ConsultaPlaca} options={{ title: 'Consultar Placa' }} />
+          <Stack.Screen name="ChecklistRetirada" component={ChecklistRetirada} options={{ title: 'Checklist de Retirada' }} />
+          <Stack.Screen name="ChecklistDevolucao" component={ChecklistDevolucao} options={{ title: 'Checklist de Devolução' }} />
+          <Stack.Screen name="ChecklistCreate" component={ChecklistCreate} options={{ title: 'Novo Checklist' }} />
           <Stack.Screen name="SincronizarUsuarios" component={SincronizarUsuarios} options={{ title: 'Sincronização' }} />
+
+          <Stack.Screen name="SMS" component={SMSRoutes} options={{ headerShown: false }}/>
+
         </>
       ) : (
         <>
@@ -166,7 +184,10 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
   },
-  logoutButton: {
-    marginLeft: 16,
+ 
+  homeBpotton: {
+    marginRight: 20,
+    color: '#f5690cff',
+
   },
 });

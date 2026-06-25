@@ -40,7 +40,8 @@ export const InputForm = styled.TextInput`
     margin-bottom: 15px;
     color: ${theme.colors.darkGray};
     font-size: 18px;
-    border-radius: 6px;
+    borderWidth: 0px;
+    borderRadius: 8px;
     padding: 10px;
 `;
 
@@ -66,7 +67,7 @@ export const TxtSubmitForm = styled.Text`
 `;
 
 export const BtnPressedSubmitForm = (pressed) => ({
-    backgroundColor: pressed ? theme.colors.primaryDark : theme.colors.primary,
+    backgroundColor: pressed ? theme.colors.primaryDark : theme.colors.green,
 });
 
 export const BtnBiometria = styled.Pressable`   
@@ -86,8 +87,8 @@ export const TxtBiometria = styled.Text`
 `;
 
 export const BtnPressedBiometria = (pressed) => ({
-        opacity: pressed ? 0.7 : 1,
-    });
+    opacity: pressed ? 0.7 : 1,
+});
 
 export const LinkLogin = styled.Text`
     color: ${theme.colors.orange};

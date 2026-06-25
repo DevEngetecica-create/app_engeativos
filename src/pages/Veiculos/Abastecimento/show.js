@@ -1,222 +1,305 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  FlatList, 
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  ScrollView,
+  View,
+  Text,
   ActivityIndicator,
-  RefreshControl,
-  Image,
-  Linking 
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  Image
 } from 'react-native';
-import { useRoute, useFocusEffect } from '@react-navigation/native';
+import { useRoute, useFocusEffect, useNavigation } from '@react-navigation/native';
 import styled from 'styled-components/native';
-import api from '../../../config/api';
-import CurrencyFormatter from '../../../utils/CurrencyFormatter';
-import formatDate from '../../../utils/formatDate';
+import { executeSql } from '../../../config/database/database';
+import { showToast } from '../../../utils/toast';
 
+// =============================
+// 🔹 Styled Components
+// =============================
 const Container = styled.View`
   flex: 1;
-  padding: 16px;
+  padding: 14px;
   background-color: #f5f5f5;
 `;
-
-const Card = styled.View`
-  background-color: #fff;
-  padding: 16px;
-  margin-bottom: 12px;
-  border-radius: 8px;
-  elevation: 2;
-`;
-
 const SectionTitle = styled.Text`
   font-size: 18px;
   font-weight: bold;
-  color: #3CB371;
-  margin-vertical: 10px;
-`;
-
-const DetailRow = styled.View`
-  flex-direction: row;
-  justify-content: space-between;
+  margin-top: 16px;
   margin-bottom: 8px;
+  color: #1f51fe;
 `;
-
+const Card = styled.View`
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+  elevation: 2;
+`;
+const Row = styled.View`
+  flex-direction: row;
+  margin-bottom: 6px;
+`;
 const Label = styled.Text`
   font-weight: bold;
   color: #333;
-  width: 40%;
+  width: 140px;
 `;
-
 const Value = styled.Text`
-  color: #555;
-  width: 60%;
-  text-align: right;
+  color: #444;
+  flex: 1;
 `;
-
-const VehicleImage = styled.Image`
+const BackButton = styled.TouchableOpacity`
+  margin-top: 20px;
+  padding: 12px;
+  background: #1f51fe;
+  border-radius: 6px;
+  align-items: center;
+`;
+const BackText = styled.Text`
+  color: #fff;
+  font-weight: bold;
+`;
+const ImageThumb = styled.Image`
   width: 100%;
-  height: 200px;
+  height: 180px;
   border-radius: 8px;
-  margin-vertical: 10px;
+  margin-top: 10px;
+  border-width: 1px;
+  border-color: #ccc;
 `;
 
-const Show = () => {
-  const { id_item } = useRoute().params;
-  const [registro, setRegistro] = useState(null);
+// =============================
+// 🔹 Formata data/hora
+// =============================
+const formatarData = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const ano = d.getFullYear();
+  const hora = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dia}/${mes}/${ano} ${hora}:${min}`;
+};
+
+// =============================
+// 🔹 Tela principal
+// =============================
+export default function AbastecimentoShow() {
+  const navigation = useNavigation();
+  const { id } = useRoute().params;
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [dados, setDados] = useState(null);
+  const [modalImage, setModalImage] = useState(null);
 
-  const fetchData = async () => {
+  // =============================
+  // 🔹 Buscar dados do SQLite
+  // =============================
+  const carregarDados = useCallback(async () => {
+    setLoading(true);
     try {
-      setError(null);
-      const response = await api.get(`admin/ativo/veiculo/abastecimento/show/${id_item}`);
-      
-      if (!response.data?.abastecimentos) {
-        throw new Error('Estrutura de dados inválida');
-      }
+      const res = await executeSql(
+        `SELECT 
+            ab.*, 
+            ob.codigo_obra AS nome_obra,
+            vc.prefixo,
+            vc.tipo AS tipo_veiculo
+          FROM veiculo_abastecimentos ab
+          LEFT JOIN obras ob ON ob.id = ab.id_obra
+          LEFT JOIN veiculos vc ON vc.id = ab.veiculo_id
+          WHERE ab.id = ? LIMIT 1`,
+        [id]
+      );
 
-      setRegistro(response.data.abastecimentos);
-    } catch (error) {
-      setError(error.response?.data?.message || error.message);
+      console.log('Dados do abastecimento:', res);
+
+      if (res.length) setDados(res[0]);
+      else showToast('Nenhum registro encontrado', 'warning');
+    } catch (err) {
+      console.error('Erro ao carregar abastecimento:', err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
+  }, [id]);
 
   useFocusEffect(
-    React.useCallback(() => {
-      fetchData();
-    }, [id_item])
+    useCallback(() => {
+      carregarDados();
+    }, [carregarDados])
   );
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
- const baseImageUrl = 'https://sga-engeativos.com.br/imagens/veiculos';
-
-  const renderDetailItem = ({ item }) => (
-    <Card>
-      <SectionTitle>Dados do Abastecimento</SectionTitle>
-      
-      <DetailRow>
-        <Label>Data:</Label>
-        <Value>{formatDate(item.data_abastecimento)}</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Quantidade:</Label>
-        <Value>{item.quantidade} litros</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Valor por Litro:</Label>
-        <Value><CurrencyFormatter value={item.valor_do_litro} /></Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Valor Total:</Label>
-        <Value><CurrencyFormatter value={item.valor_total} /></Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Fornecedor:</Label>
-        <Value>{item.fornecedor || 'Não informado'}</Value>
-      </DetailRow>
-
-      <SectionTitle>Veículo</SectionTitle>
-      {registro.veiculo?.imagem && (
-        <VehicleImage
-          source={
-                registro.veiculo?.imagem
-                  ? { uri: `${baseImageUrl}/${item.veiculo_id}/${registro.veiculo?.imagem}` }
-                  : require('../../../../assets/no-photos.png')
-              }
-          resizeMode="contain"
-        />
-      )}
-      
-      <DetailRow>
-        <Label>Prefixo:</Label>
-        <Value>{registro.veiculo?.prefixo || 'Não informado'}</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Marca/Modelo:</Label>
-        <Value>{[registro.veiculo?.marca, registro.veiculo?.modelo].filter(Boolean).join(' - ')}</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Chassi:</Label>
-        <Value>{registro.veiculo?.nun_serie_chassi || 'Não informado'}</Value>
-      </DetailRow>
-
-      <SectionTitle>Responsável</SectionTitle>
-      <DetailRow>
-        <Label>Nome:</Label>
-        <Value>{registro.funcionario?.nome || 'Não informado'}</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Matrícula:</Label>
-        <Value>{registro.funcionario?.matricula || 'Não informada'}</Value>
-      </DetailRow>
-
-      <SectionTitle>Obra</SectionTitle>
-      <DetailRow>
-        <Label>Código:</Label>
-        <Value>{registro.obra?.codigo_obra || 'Não informado'}</Value>
-      </DetailRow>
-
-      <DetailRow>
-        <Label>Localização:</Label>
-        <Value>
-          {[registro.obra?.cidade, registro.obra?.estado].filter(Boolean).join('/')}
-        </Value>
-      </DetailRow>
-    </Card>
-  );
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
   if (loading) {
     return (
-      <Container>
-        <ActivityIndicator size="large" color="#3CB371" />
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#1f51fe" />
       </Container>
     );
   }
 
-  if (error) {
+  if (!dados) {
     return (
       <Container>
-        <Text style={{ color: 'red', textAlign: 'center', margin: 20 }}>
-          Erro: {error}
-        </Text>
-        <Button
-          title="Tentar novamente"
-          onPress={fetchData}
-          color="#3CB371"
-        />
+        <Text>Nenhum dado encontrado.</Text>
+        <BackButton onPress={() => navigation.goBack()}>
+          <BackText>Voltar</BackText>
+        </BackButton>
       </Container>
     );
   }
 
-  return (
-    <Container>
-      <FlatList
-        data={[registro]} // Convertendo objeto único em array
-        renderItem={renderDetailItem}
-        keyExtractor={() => 'unique-key'}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#3CB371']}
-          />
-        }
-      />
-    </Container>
-  );
-};
+  const isMaquina = dados.tipo_veiculo == 4;
 
-export default Show;
+  return (
+    <>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <Container>
+          <SectionTitle>Detalhes do Abastecimento</SectionTitle>
+          <Card>
+            <Row>
+              <Label>Veículo:</Label>
+              <Value>{dados.prefixo || '–'}</Value>
+            </Row>
+            <Row>
+              <Label>Obra:</Label>
+              <Value>{dados.nome_obra || dados.id_obra}</Value>
+            </Row>
+            <Row>
+              <Label>Data Abastecimento:</Label>
+              <Value>{formatarData(dados.data_abastecimento)}</Value>
+            </Row>
+            <Row>
+              <Label>Fornecedor:</Label>
+              <Value>{dados.fornecedor || '–'}</Value>
+            </Row>
+            <Row>
+              <Label>Combustível:</Label>
+              <Value>{dados.combustivel || '–'}</Value>
+            </Row>
+
+            {isMaquina ? (
+              <>
+                <Row>
+                  <Label>Horímetro Anterior:</Label>
+                  <Value>{dados.hr_anterior || '–'}</Value>
+                </Row>
+                <Row>
+                  <Label>Horímetro Atual:</Label>
+                  <Value>{dados.hr_atual || '–'}</Value>
+                </Row>
+              </>
+            ) : (
+              <>
+                <Row>
+                  <Label>Hodômetro Anterior:</Label>
+                  <Value>{dados.km_anterior || '–'}</Value>
+                </Row>
+                <Row>
+                  <Label>Hodômetro Atual:</Label>
+                  <Value>{dados.km_atual || '–'}</Value>
+                </Row>
+              </>
+            )}
+
+            <Row>
+              <Label>Quantidade (L):</Label>
+              <Value>{dados.quantidade || '0'} L</Value>
+            </Row>
+            <Row>
+              <Label>Valor por Litro:</Label>
+              <Value>R$ {dados.valor_do_litro || '0.00'}</Value>
+            </Row>
+            <Row>
+              <Label>Total:</Label>
+              <Value style={{ fontWeight: 'bold', color: '#1f51fe' }}>
+                R$ {dados.valor_total || '0.00'}
+              </Value>
+            </Row>
+
+            <Row>
+              <Label>Usuário:</Label>
+              <Value>{dados.user_create || '–'}</Value>
+            </Row>
+
+            <Row>
+              <Label>Status:</Label>
+              <Value>
+                {dados.sync_status == 1 ? (
+                  <Text style={{ color: 'green' }}>Sincronizado ✅</Text>
+                ) : (
+                  <Text style={{ color: 'red' }}>Pendente de sincronização ⚠️</Text>
+                )}
+              </Value>
+            </Row>
+
+            {/* Imagem comprovante */}
+            {dados.arquivo_app ? (
+              <>
+                <Text style={{ marginTop: 10, fontWeight: 'bold', color: '#333' }}>
+                  Comprovante
+                </Text>
+                <TouchableOpacity onPress={() => setModalImage(`file://${dados.arquivo_app}`)}>
+                  <ImageThumb
+                    source={{ uri: `file://${dados.arquivo_app}` }}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={{ marginTop: 10, fontStyle: 'italic', color: '#999' }}>
+                Nenhum comprovante registrado.
+              </Text>
+            )}
+          </Card>
+
+          <BackButton onPress={() => navigation.goBack()}>
+            <BackText>Voltar</BackText>
+          </BackButton>
+        </Container>
+      </ScrollView>
+
+      {/* Modal fullscreen da imagem */}
+      <Modal visible={!!modalImage} transparent>
+        <View style={styles.modalBg}>
+          <TouchableOpacity
+            style={styles.modalClose}
+            onPress={() => setModalImage(null)}
+          >
+            <Text style={{ color: '#fff', fontSize: 16 }}>Fechar</Text>
+          </TouchableOpacity>
+          <Image
+            source={{ uri: modalImage }}
+            style={styles.modalImage}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalImage: {
+    width: '95%',
+    height: '80%',
+    borderRadius: 10
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 10,
+    borderRadius: 6
+  }
+});

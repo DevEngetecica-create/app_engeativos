@@ -1,64 +1,108 @@
-// src/components/NetworkBanner.js
+import React from "react";
+import { View, Text, StyleSheet, Switch, Alert, TouchableOpacity } from "react-native";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAuth } from "../contexts/auth";
+import { getConnectionSnapshot, isGoodSignal } from "../config/net/connectionSnapshot";
+import { forceGlobalOfflineMode } from "../contexts/network";
+import { useNavigation } from "@react-navigation/native";
 
-import React from 'react';
-import {
-  TouchableOpacity,
-  View,
-  Text,
-  StyleSheet
-} from 'react-native';
-import { useConnectionMode } from '../config/hooks/useConnectionMode';
+const NetworkBanner = () => {
+  const { signOut, connectionMode, switchConnectionMode } = useAuth();
+  const isOffline = connectionMode === "offline";
+  const navigation = useNavigation();
 
-export default function NetworkBanner() {
-  // Pega modoOnline e isConnected, e a ação toggleModo
-  const { modoOnline, isConnected, toggleModo, modoDisponivel } = useConnectionMode();
+  const snapshot = getConnectionSnapshot();
+  const quality = snapshot?.qualityPct ?? 0;
+  const good = isGoodSignal(quality);
 
-  // Cor do “dot” para representar:
-  // - verde escuro  = modoOnline *e* conectado (tudo ok)
-  // - laranja      = modoOnline *mas* sem conexão real (modo ainda online, mas sem internet)
-  // - vermelho     = modoOffline (independente da rede física)
-  let corDot = '#e74c3c';
-  if (modoOnline && isConnected)      corDot = '#2ecc71';   // verde
-  else if (modoOnline && !isConnected) corDot = '#f39c12';  // laranja
+  let bgColor = "#caf3a8ff";
+  let text = "Modo ONLINE";
 
-  // Texto de status a exibir:
-  // - Quando modoOnline === false → “offline”
-  // - Quando modoOnline === true  e isConnected === true → “on-line”
-  // - Quando modoOnline === true  mas isConnected === false → “sem rede”
-  let textoStatus = 'off-line';
-  if (modoOnline && isConnected) textoStatus = 'on-line';
-  else if (modoOnline && !isConnected) textoStatus = 'sem rede';
+  if (isOffline) {
+    bgColor = "#FF7043";
+    text = "Modo OFFLINE";
+  } else if (!good) {
+    bgColor = "#FFA000";
+    text = `⚠️ Sinal fraco (${quality.toFixed(0)}%)`;
+  }
+
+  const handleSwitch = (val) => {
+    if (val) {
+      const { qualityPct } = getConnectionSnapshot();
+      if (!isGoodSignal(qualityPct)) {
+        Alert.alert(
+          "Sinal fraco",
+          `Intensidade atual ≈ ${qualityPct}%. Recomendado permanecer OFFLINE.`
+        );
+        return;
+      }
+    }
+
+    const newMode = val ? "online" : "offline";
+    switchConnectionMode(newMode);
+    forceGlobalOfflineMode(!val);
+  };
 
   return (
-    <TouchableOpacity onPress={toggleModo} activeOpacity={0.8}>
-      <View style={styles.container}>
-        <View style={[styles.statusDot, { backgroundColor: corDot }]} />
-        <Text style={[styles.statusText, { color: corDot }]}>
-          {textoStatus}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <View style={[styles.banner, { backgroundColor: bgColor }]}>
+      <MaterialIcons
+        name={isOffline ? "wifi-off" : "wifi"}
+        size={20}
+        color="#333"
+        style={{ marginTop: 12 }}
+      />
+      <Text style={styles.text}>{text}</Text>
+
+      <Switch
+        value={!isOffline}
+        onValueChange={handleSwitch}
+        thumbColor={isOffline ? "#f44336" : "#81C784"}
+        trackColor={{ false: "#ccc", true: "#81C784" }}
+        style={styles.switch}
+      />
+
+      <TouchableOpacity onPress={() => navigation.navigate("Home")} style={styles.homeButton}>
+        <MaterialCommunityIcons name="home" size={24} color="#333" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => navigation.navigate("Upload")} style={styles.homeButton}>
+        <MaterialCommunityIcons name="auto-upload" size={24} color="#333" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={signOut} style={styles.logoutButton}>
+        <MaterialCommunityIcons name="logout" size={24} color="#333" />
+      </TouchableOpacity>
+    </View>
   );
-}
+};
+
+export default NetworkBanner;
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end', // para ficar no canto direito do header
-    paddingHorizontal: 12,
-    marginTop: 8,
-    marginBottom: -8,      // aproxima mais do topo
-    zIndex: 10,
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    backgroundColor: "#4CAF50",
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
+  switch: {
+    right: 0,
+    marginTop: 25,
+    marginRight: 12,
   },
-  statusText: {
-    fontWeight: 'bold',
-    fontSize: 14,
+  text: {
+    color: "#333",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginTop: 15,
+    marginRight: 12,
+  },
+  homeButton: {
+    marginHorizontal: 12,
+    marginTop: 25,
+  },
+  logoutButton: {
+    marginTop: 23,
+    marginHorizontal: 18,
   },
 });

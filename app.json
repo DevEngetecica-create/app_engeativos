@@ -2,35 +2,79 @@
   "expo": {
     "name": "Engeativos",
     "slug": "Engeativos",
-    "version": "1.0.0",
+    "version": "1.0.1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b76bb5d5-5b31-4ee7-b191-a84c2c199432",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
-    "icon": "./assets/adaptive-icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/adaptive-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.sga.engeativos",
+      "buildNumber": "2",
+      "supportsTablet": true,
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O aplicativo precisa da câmera para registrar fotos de checklists, abastecimentos e diário de bordo.",
+        "NSPhotoLibraryUsageDescription": "Acessamos a galeria apenas para anexar imagens aos registros do app.",
+        "NSFaceIDUsageDescription": "Usamos autenticação biométrica para proteger seu acesso ao aplicativo.",
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização para registrar onde os checklists e atividades foram realizados.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.sga.engeativos",
+      "versionCode": 2,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#000000"
       },
-      "package": "com.samuel.melo.Engeativos"
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "O aplicativo precisa da câmera para ler placas e prefixos de veículos.",
+          "enableCodeScanner": true
+        }
+      ],
+      "expo-localization"
     ],
     "extra": {
       "eas": {
-        "projectId": "4dc20df8-12b6-4d07-84ed-54b151d567ed"
+        "projectId": "b76bb5d5-5b31-4ee7-b191-a84c2c199432"
       }
-    }
+    },
+    "owner": "samueltgq"
   }
 }

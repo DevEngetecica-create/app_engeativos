@@ -1,67 +1,108 @@
-import axios from 'axios';
-import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// src/config/api.js
+import axios from "axios";
+import { Alert } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
+import { getConnectionSnapshot, isGoodSignal, SIGNAL_OK_THRESHOLD } from "./net/connectionSnapshot";
+
+// 🔧 baseURL resolvida via app.config.js (extra.apiBaseUrl), alimentada por
+// APP_ENV / APP_API_URL. Fallback de producao (COM /api/) caso o extra falte.
+//
+// Corrige o bug que causava 405 "GET, HEAD" no app_login:
+//   - baseURL anterior NAO tinha "/api/" -> o POST caia nas rotas web.
+//   - o "||" com string literal truthy ("http://..." ou
+//     "process.env.EXPO_PUBLIC_API_URL") fixava o lado esquerdo e nunca
+//     usava a producao.
+// process.env tambem nao funciona dentro de aspas; a fonte correta no Expo
+// e o app.config.js (extra), lido aqui via expo-constants.
+//const FALLBACK_BASE_URL = "https://sga-engeativos.com.br/api/";
+
+const FALLBACK_BASE_URL = "https://sga-engeativos.com.br/api/";
+// expoConfig e a fonte moderna (substitui Constants.manifest, depreciado).
+// No dev-client + Metro e no EAS, expoConfig.extra vem do app.config.js.
+const baseURL =
+  Constants?.expoConfig?.extra?.apiBaseUrl ||
+  FALLBACK_BASE_URL;
+
+if (__DEV__) {
+  // eslint-disable-next-line no-console
+  console.log("[api] baseURL =", baseURL, "| env =", Constants?.expoConfig?.extra?.appEnv);
+}
 
 const api = axios.create({
-  baseURL: 'http://192.168.2.152:8000/api/',  
-  //baseURL: 'https://sga-engeativos.com.br/api/',
-  timeout: 30000, // timeout para uploads de até 30 segundos
+  baseURL,
+  timeout: 30000,
 });
 
-// Handler para logout automático
+
+// 👉 handler configurável pelo AuthProvider
 let onUnauthorized = null;
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 
-// Permite registrar função de logout externa (AuthContext)
-export const setUnauthorizedHandler = (handler) => {
-  onUnauthorized = handler;
-};
+// 👉 flag global para não repetir alerta/handler
+let isHandling401 = false;
 
-// Interceptor de requisição
+const TOKEN_KEY = "auth_token";
+
+// Requisições
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('@token');
+  // injeta token (fonte única: SecureStore)
+  try {
+    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Accept = 'application/json';
+  } catch {}
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (config.data instanceof FormData) {
-    config.headers['Content-Type'] = 'multipart/form-data';
-    config.transformRequest = (data) => data;
+  // aviso para uploads com sinal fraco
+  if (config.data instanceof FormData && !config.__skipSignalWarn) {
+    const { qualityPct = 0 } = getConnectionSnapshot() || {};
+    if (!isGoodSignal(qualityPct)) {
+      Alert.alert(
+        "⚠️ Sinal fraco",
+        `Qualidade ≈ ${qualityPct.toFixed(0)}% (mín. ${SIGNAL_OK_THRESHOLD}%).`
+      );
+    }
   }
 
   return config;
 });
 
-
-// Interceptor de resposta
+// Respostas
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    const message =
-    
-      error.response?.data?.message || error.message || 'Erro desconhecido';
+  (resp) => resp,
+  (err) => {
+    const status  = err?.response?.status;
+    let message = err?.response?.data?.message || err?.message || "Erro desconhecido";
+    const cfg     = err?.config || {};
 
-    if (error.message === 'Sem sinal') {
-      Alert.alert(
-        'Atenção',
-        'Não foi possível conectar ao servidor. Verifique sua internet ou tente novamente mais tarde.'
-      );
-
-    } else if (error.response?.status === 401) {
-      
-      Alert.alert('Sessão Expirada', 'Faça login novamente.');
-
-      // Executa logout automático se handler estiver definido
-      if (onUnauthorized) {
-        onUnauthorized();
-      }
-    } else {
-      Alert.alert('Erro', message);
+    // 🛡️ Prevenção contra exibição de HTML (ex: páginas de redirect ou erros 500 do Laravel)
+    if (typeof err?.response?.data === 'string' && err.response.data.toLowerCase().includes('<html')) {
+      message = "Erro de comunicação: O servidor retornou uma página inválida em vez de dados (possível expiração de sessão ou erro interno).";
+      console.warn(`[API] HTML recebido da URL: ${cfg.url}`); // Apenas um log curto no console, sem travar o app
     }
 
-    return Promise.reject(error);
+
+    // ⛔️ 401: ignore se a própria chamada pediu para pular
+    if (status === 401 && !cfg.__skip401Handler && !cfg.__isLogout) {
+      if (!isHandling401) {
+        isHandling401 = true;
+        Alert.alert("Sessão expirada", "Faça login novamente.");
+        // chama handler 1x
+        onUnauthorized?.();
+        // solta a trava depois de um pequeno intervalo
+        setTimeout(() => { isHandling401 = false; }, 1200);
+      }
+      return Promise.reject(err);
+    }
+
+    // Erros de rede: deixe para o caller
+    if (String(message).toLowerCase().includes("network")) {
+      return Promise.reject(err);
+    }
+
+    // Outros erros: alerta único aqui
+    if (!cfg.__silent) Alert.alert("Erro", message);
+    return Promise.reject(err);
   }
 );
 

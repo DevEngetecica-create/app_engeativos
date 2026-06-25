@@ -1,277 +1,270 @@
-// src/pages/Veiculos/DiarioBordo/Index.js
-
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
+  ScrollView,
   View,
   Text,
-  FlatList,
+  RefreshControl,
+  ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import styled from 'styled-components/native';
-import api from '../../../config/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db } from '../../../config/database/database';
+import { db, executeSql } from '../../../config/database/database';
 
-const CreateButton = styled.TouchableOpacity`
-  background-color: #3CB371;
-  padding: 7px;
-  border-radius: 6px;
-  align-self: flex-start;
-  margin-bottom: 14px;
+// =========================
+// 🔹 Styled Components
+// =========================
+const Container = styled.View`
+  flex: 1;
+  background: #f5f5f5;
+  padding: 8px;
 `;
-const CreateText = styled.Text`
-  color: #fff;
-  font-weight: bold;
-  font-size: 16px;
-  text-align: center;
-  min-width: 150px;
-`;
-
-const CardDetalhe = styled.View`
-  flex-direction: column;
+const Card = styled.View`
+  background-color: #fff;
+  border-radius: 8px;
+  elevation: 2;
+  padding: 10px;
   margin-bottom: 10px;
+  border-left-width: 5px;
+  border-left-color: ${props => (props.tipo === 4 ? '#e67e22' : '#3498db')};
 `;
 const Label = styled.Text`
   font-weight: bold;
   color: #333;
 `;
-const Linha = styled.View`
-  width: 100%;
-  background-color: green;
-  height: 1px;
-  margin-bottom: 8px;
-`;
 const Value = styled.Text`
-  color: #555;
-  margin-left: 6px;
+  color: #000;
+  margin-bottom: 4px;
+`;
+const SyncText = styled.Text`
+  color: green;
+  font-weight: bold;
+  margin-top: 6px;
+`;
+const BtnGroup = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 8px;
+`;
+const Btn = styled.TouchableOpacity`
+  background-color: ${props => props.color || '#1f51fe'};
+  padding: 8px 12px;
+  border-radius: 6px;
+`;
+const BtnText = styled.Text`
+  color: #fff;
+  font-weight: bold;
 `;
 
-export default function DiarioBordoIndex() {
+// =========================
+// 🔹 Helper: início da semana
+// =========================
+function getWeekRange() {
+  const now = new Date();
+  const day = now.getDay(); // 0-dom, 1-seg...
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const format = d =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+
+  return { start: format(monday), end: format(sunday) };
+}
+
+// =========================
+// 🔹 Principal
+// =========================
+export default function DiarioList() {
   const navigation = useNavigation();
-  const route = useRoute();
-  const { id } = route.params; // id do veículo
-
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [registros, setRegistros] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const route = useRoute();
 
-  useEffect(() => {
-    loadRegistros();
+  const { id_veiculo, prefixo, id_obra } = route.params || {}; // id do veículo
+
+  const fetchRegistros = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { start, end } = getWeekRange();
+
+      const sql = `
+        SELECT *
+        FROM veiculos_diario_bordo
+        WHERE id_veiculo = ? 
+          AND (DATE(data_cadastro) BETWEEN DATE(?) AND DATE(?) OR ciclo_status = 'ABERTO')
+        ORDER BY datetime(data_cadastro) DESC
+      `;
+      const res = await executeSql(sql, [id_veiculo, start, end]);
+      setRegistros(res);
+    } catch (e) {
+      console.error('Erro ao buscar registros locais:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const loadRegistros = async () => {
-    setLoading(true);
-
-    // 1) Lê modeOnline
-    let modo;
+  const handleNovoDiario = async () => {
     try {
-      modo = await AsyncStorage.getItem('@modoOnline');
-    } catch (e) {
-      console.warn('Erro lendo modoOnline, assumindo on-line:', e);
-      modo = '1';
-    }
-    const isOnline = modo !== '0';
+      const resUser = await executeSql(`SELECT email FROM users LIMIT 1`);
+      const email = resUser.length ? resUser[0].email : null;
 
-    if (isOnline) {
-      // → Tenta API
-      try {
-        const response = await api.get(`admin/ativo/veiculo/diario_bordo/${id}`);
-        // Supondo que o retorno seja um array de objetos:
-        const dados = Array.isArray(response.data) ? response.data : response.data.registros || [];
+      const sql = `
+        SELECT id FROM veiculos_diario_bordo
+        WHERE id_veiculo = ?
+          AND user_create = ?
+          AND ciclo_status = 'ABERTO'
+          AND deleted_at IS NULL
+        LIMIT 1
+      `;
+      const abertos = await executeSql(sql, [id_veiculo, email]);
 
-        setRegistros(dados);
-
-        // Guarda cada registro no SQLite, para uso offline futuro:
-        db.transaction(tx => {
-          dados.forEach(item => {
-            // Ajuste as colunas conforme sua tabela local “veiculos_diario_bordo”
-            tx.executeSql(
-              `INSERT OR REPLACE INTO veiculos_diario_bordo
-                (id, id_obra, id_veiculo, id_funcionario, data_cadastro, horario_inicial,
-                 horimetro_inicial, hodometro_inicial, horario_final, horimetro_final,
-                 hodometro_final, descricao_atividade, arquivo, sync_status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1);`,
-              [
-                item.id,
-                item.id_obra,
-                item.id_veiculo,
-                item.id_funcionario,
-                item.data_cadastro,
-                item.horario_inicial,
-                item.horimetro_inicial,
-                item.hodometro_inicial,
-                item.horario_final,
-                item.horimetro_final,
-                item.hodometro_final,
-                item.descricao_atividade,
-                item.arquivo
-              ],
-              () => { /* OK */ },
-              (_, err) => console.error('❌ SQLite: falha ao inserir Diário de Bordo', err)
-            );
-          });
-        });
-      } catch (error) {
-        console.warn('🔴 Erro na API, carregando offline:', error.message);
-        fetchRegistrosOffline();
+      if (abertos.length > 0) {
+        Alert.alert(
+          'Diário em aberto',
+          'Você possui um Diário de Bordo em aberto para este veículo. Encerre a atividade anterior antes de abrir um novo diário.'
+        );
+        return;
       }
-    } else {
-      // → modo offline puro
-      fetchRegistrosOffline();
+
+      navigation.navigate('VeiculosDiarioBordoCreate', { id_veiculo: id_veiculo, prefixo: prefixo, id_obra: id_obra });
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Erro', 'Não foi possível verificar diários abertos.');
     }
-
-    setLoading(false);
   };
 
-  // Carrega direto do SQLite
-  const fetchRegistrosOffline = () => {
-    db.transaction(tx => {
-      tx.executeSql(
-        `SELECT * FROM veiculos_diario_bordo WHERE id_veiculo = ? ORDER BY data_cadastro DESC;`,
-        [id],
-        (_, { rows }) => {
-          const arr = rows._array || [];
-          setRegistros(arr);
-        },
-        (_, err) => {
-          console.error('❌ SQLite: erro ao buscar Diário de Bordo offline', err);
-          Alert.alert('Erro', 'Não foi possível acessar registros offline.');
-        }
-      );
-    });
-  };
-
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('VeiculosDiarioBordoShow', { id_item: item.id })}
-    >
-      <Linha />
-
-      <CardDetalhe>
-        <Label>Veículo:</Label>
-        <Value>{item.id_veiculo?.toString()}</Value>
-      </CardDetalhe>
-
-      <CardDetalhe>
-        <Label>Criado em:</Label>
-        <Value>
-          { item.data_cadastro
-            ? new Date(item.data_cadastro).toLocaleString()
-            : '— não informado —'
-          }
-        </Value>
-      </CardDetalhe>
-
-      <CardDetalhe>
-        <Label>Horário inicial:</Label>
-        <Value>{item.horario_inicial ?? '—'}</Value>
-      </CardDetalhe>
-
-      <CardDetalhe>
-        <Label>Horário final:</Label>
-        <Value>{item.horario_final ?? '—'}</Value>
-      </CardDetalhe>
-
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={styles.btnAction}
-          onPress={() =>
-            navigation.navigate('VeiculosDiarioBordoShow', { id_item: item.id })
-          }
-        >
-          <Text style={styles.textoBotao}>Detalhes</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.btnEdit}
-          onPress={() =>
-            navigation.navigate('VeiculosDiarioBordoEdit', { id_item: item.id })
-          }
-        >
-          <Text style={styles.textoBotao}>Editar</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegistros();
+    }, [fetchRegistros])
   );
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#3CB371" />
-      </View>
+      <Container style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="green" />
+      </Container>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <CreateButton
-        onPress={() =>
-          navigation.navigate('VeiculosDiarioBordoCreate', { id_veiculo: id })
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={fetchRegistros} colors={['#1f51fe']} />
         }
       >
-        <CreateText>Cadastrar</CreateText>
-      </CreateButton>
+        <Container>
+          <Text style={styles.titulo}>📅 Diários da Semana</Text>
 
-      <FlatList
-        data={registros}
-        renderItem={renderItem}
-        keyExtractor={(item, idx) =>
-          item.id != null ? item.id.toString() : idx.toString()
-        }
-        ListEmptyComponent={() => (
-          <Text style={styles.emptyText}>Nenhum registro encontrado.</Text>
-        )}
-      />
+          {registros.length === 0 ? (
+            <Text style={{ textAlign: 'center', marginTop: 30, color: '#777' }}>
+              Nenhum diário encontrado nesta semana.
+            </Text>
+          ) : (
+            registros.map(item => (
+              <Card key={item.id} tipo={item.tipo}>
+                <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: item.ciclo_status === 'ABERTO' ? '#f39c12' : '#2ecc71', marginBottom: 8 }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>
+                    Ciclo: {item.ciclo_status === 'ABERTO' ? 'Aberto' : 'Encerrado'}
+                  </Text>
+                </View>
+                <Label>Data Cadastro:</Label>
+                <Value>{item.data_cadastro}</Value>
+
+                {item.horimetro_inicial ? (
+                  <>
+                    <Label>Horímetro:</Label>
+                    <Value>
+                      {item.horimetro_inicial} → {item.horimetro_final || '-'}
+                    </Value>
+                  </>
+                ) : (
+                  <>
+                    <Label>Hodômetro:</Label>
+                    <Value>
+                      {item.hodometro_inicial} → {item.hodometro_final || '-'}
+                    </Value>
+                  </>
+                )}
+
+                <Label>Horário:</Label>
+                <Value>
+                  {item.horario_inicial} → {item.horario_final}
+                </Value>
+
+                <Label>Atividade:</Label>
+                <Value>{item.descricao_atividade}</Value>
+
+                {item.sync_status == 1 && (
+                  <SyncText>✅ Diário de bordo sincronizado</SyncText>
+                )}
+
+                <BtnGroup>
+                  {item.ciclo_status === 'ABERTO' && (
+                    <Btn
+                      color="#f39c12"
+                      onPress={() => navigation.navigate('VeiculosDiarioBordoEdit', { id: item.id })}
+                    >
+                      <BtnText>Encerrar</BtnText>
+                    </Btn>
+                  )}
+                  <Btn
+                    color="#3498db"
+                    onPress={() => navigation.navigate('VeiculosDiarioBordoShow', { id: item.id })}
+                  >
+                    <BtnText>Detalhes</BtnText>
+                  </Btn>
+                </BtnGroup>
+              </Card>
+            ))
+          )}
+        </Container>
+      </ScrollView>
+
+      {/* Botão flutuante */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleNovoDiario}
+      >
+        <Text style={styles.fabText}>＋</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: 16,
+  titulo: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 12,
-    borderRadius: 8,
-    elevation: 2
   },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 8
-  },
-  btnAction: {
-    marginTop: 8,
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
     backgroundColor: 'green',
-    padding: 8,
-    borderRadius: 4,
-    marginRight: 8
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
   },
-  btnEdit: {
-    marginTop: 8,
-    backgroundColor: 'orange',
-    padding: 8,
-    borderRadius: 4
-  },
-  textoBotao: {
+  fabText: {
     color: '#fff',
-    fontWeight: 'bold'
+    fontSize: 30,
+    lineHeight: 30,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 20,
-    color: '#666'
-  }
 });
