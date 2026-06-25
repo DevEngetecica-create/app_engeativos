@@ -312,8 +312,23 @@ async function processarAberturas(updateStatus) {
 
       const response = await api.post('sync/checklists/aberturas', { registros: [abertura] });
 
-      if (response.data?.status === 'success') {
-        const { server_id } = response.data.data?.[0] ?? {};
+      // CORREÇÃO: aceitar 'success' E 'partial' como respostas válidas,
+      // mas validar o status individual do registro antes de marcar synced.
+      const statusGlobal = response.data?.status;
+      if (statusGlobal === 'success' || statusGlobal === 'partial') {
+        const item0 = response.data?.data?.[0];
+
+        // CORREÇÃO: se o backend marcou este item como 'erro', joga pra catch
+        if (!item0 || item0.status === 'erro') {
+          throw new Error(item0?.message || 'Abertura rejeitada pelo servidor (status: erro)');
+        }
+
+        // CORREÇÃO: server_id obrigatório pra prosseguir com itens/fotos
+        if (!item0.server_id) {
+          throw new Error('Servidor nao retornou server_id valido para a abertura');
+        }
+
+        const server_id = item0.server_id;
         await gravarServerId('veiculo_checklist_itens_servicos', abertura.id_local, server_id);
 
         // ETAPA 2: itens da abertura
@@ -359,8 +374,19 @@ async function processarFechamentos(updateStatus) {
 
       const response = await api.post('sync/checklists/fechamentos', { registros: [fechamento] });
 
-      if (response.data?.status === 'success') {
-        const { server_id } = response.data.data?.[0] ?? {};
+      const statusGlobalF = response.data?.status;
+      if (statusGlobalF === 'success' || statusGlobalF === 'partial') {
+        const item0F = response.data?.data?.[0];
+
+        // CORREÇÃO: validar status individual do fechamento
+        if (!item0F || item0F.status === 'erro') {
+          throw new Error(item0F?.message || 'Fechamento rejeitado pelo servidor (status: erro)');
+        }
+        if (!item0F.server_id) {
+          throw new Error('Servidor nao retornou server_id valido para o fechamento');
+        }
+
+        const server_id = item0F.server_id;
         await gravarServerId('veiculo_checklist_itens_servicos', fechamento.id_local, server_id);
 
         // ETAPA 5: itens do fechamento
@@ -420,8 +446,22 @@ async function processarItens(idLocalPai, serverIdPai, updateStatus, etapaPath) 
 
       const response = await api.post(`sync/checklists/${etapaPath}/itens`, { registros: [itemFormatado] });
 
-      if (response.data?.status === 'success') {
-        const { server_id } = response.data.data?.[0] ?? {};
+      const statusGlobalI = response.data?.status;
+      if (statusGlobalI === 'success' || statusGlobalI === 'partial') {
+        const item0I = response.data?.data?.[0];
+
+        // CORREÇÃO CRÍTICA: validar que ESTE item foi de fato inserido no servidor.
+        // Antes, o backend retornava 'success' mesmo quando o item falhava no MySQL,
+        // e o frontend marcava como synced — depois a foto chegava no servidor e
+        // dava "Registro pai não encontrado" porque o item nao estava la.
+        if (!item0I || item0I.status === 'erro') {
+          throw new Error(item0I?.message || 'Item rejeitado pelo servidor (status: erro)');
+        }
+        if (!item0I.server_id) {
+          throw new Error('Servidor nao retornou server_id valido para o item');
+        }
+
+        const server_id = item0I.server_id;
         await gravarServerId('veiculo_checklist_itens_realizados', item.id_local, server_id);
 
         // FOTOS DOS ITENS
@@ -647,6 +687,25 @@ async function processarListaEvidencias(evidencias, updateStatus) {
 }
 
 async function processarEvidenciasDoPai(parentTabela, parentIdLocal, updateStatus) {
+  // CORREÇÃO (defesa em profundidade): só enviar fotos se o registro pai
+  // foi de fato confirmado no servidor (sync_status=1 E id IS NOT NULL).
+  // Antes, se um item falhasse no insert do servidor, as fotos ainda eram
+  // enviadas e o backend respondia "Registro pai não encontrado".
+  // Agora as evidências ficam como sync_status=0 (pendentes) e serão
+  // retentadas no próximo ciclo de sincronização, depois que o pai entrar.
+  const pai = await executeSql(
+    `SELECT sync_status, id FROM ${parentTabela} WHERE id_local = ? LIMIT 1;`,
+    [parentIdLocal]
+  );
+
+  if (!pai.length || Number(pai[0].sync_status) !== 1 || !pai[0].id) {
+    console.warn(
+      `[skip-evidencias] Pai ${parentTabela}/${parentIdLocal} nao confirmado no servidor — ` +
+      `fotos ficam pendentes para o proximo ciclo.`
+    );
+    return;
+  }
+
   const evidencias = await buscarEvidenciasPendentes(
     `parent_tabela = ? AND parent_id_local = ?`,
     [parentTabela, parentIdLocal]
